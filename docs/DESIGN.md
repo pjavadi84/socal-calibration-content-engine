@@ -473,16 +473,16 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 
 **Goal:** Project setup, database, and core article generation working locally.
 
-- [ ] Initialize Next.js 15 project with App Router
-- [ ] Set up Tailwind CSS + shadcn/ui
+- [x] Initialize Next.js 15 project with App Router
+- [x] Set up Tailwind CSS + shadcn/ui
 - [ ] Configure Supabase project (free tier)
-- [ ] Create database schema (migrations)
-- [ ] Seed content matrix (pillars, categories, locations, internal links)
-- [ ] Build Gemini LLM client wrapper (configurable provider)
-- [ ] Implement article generation service (two-step: content + keywords)
-- [ ] Implement SEO scoring algorithm (port from Realience)
-- [ ] Build JSON-LD generator (Article + FAQPage schemas)
-- [ ] Basic API routes: generate article, list articles, get article
+- [x] Create database schema (migrations)
+- [x] Seed content matrix (pillars, categories, locations, internal links)
+- [x] Build Gemini LLM client wrapper (configurable provider)
+- [x] Implement article generation service (two-step: content + keywords)
+- [x] Implement SEO scoring algorithm (port from Realience)
+- [x] Build JSON-LD generator (Article + FAQPage schemas)
+- [x] Basic API routes: generate article, list articles, get article
 
 **Deliverable:** Can generate a calibration article from the command line or API call and see its SEO score.
 
@@ -497,8 +497,8 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 - [ ] Batch generation page (select multiple combinations → generate in bulk)
 - [ ] Article list page (filter by status, pillar, category, location, SEO score)
 - [ ] Article detail page (view content, SEO breakdown, edit, approve/reject)
-- [ ] Set up Inngest for background job processing
-- [ ] Batch generation with progress tracking
+- [x] Set up Inngest for background job processing
+- [x] Batch generation with progress tracking
 
 **Deliverable:** Parham can log in, generate articles, review them, and manage the content pipeline.
 
@@ -506,12 +506,12 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 
 **Goal:** Push approved articles to WordPress as drafts.
 
-- [ ] WordPress REST API client (authentication, post creation, category mapping)
+- [x] WordPress REST API client (authentication, post creation, category mapping)
 - [ ] Settings page for WordPress credentials (site URL, username, app password)
 - [ ] "Push to WordPress" button on article detail page
 - [ ] Auto-push on approval (optional setting)
-- [ ] WP category sync (create/map content engine categories to WP categories)
-- [ ] Meta field integration (RankMath or Yoast SEO fields)
+- [x] WP category sync (create/map content engine categories to WP categories)
+- [x] Meta field integration (RankMath or Yoast SEO fields)
 - [ ] Status tracking (synced/not synced with WordPress)
 
 **Prerequisite:** Parham installs RankMath on his WordPress site and creates an Application Password.
@@ -522,11 +522,11 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 
 **Goal:** Social post generation, UX polish, and deployment.
 
-- [ ] Social post generation service (3 variants per article)
+- [x] Social post generation service (3 variants per article)
 - [ ] Social posts UI (view variants, copy to clipboard, mark as used)
 - [ ] Deploy to Vercel
 - [ ] Connect custom domain (optional: engine.socalcalibration.com or similar)
-- [ ] Environment variable configuration (Gemini API key, Supabase, WordPress)
+- [x] Environment variable configuration (Gemini API key, Supabase, WordPress)
 - [ ] Error handling and retry logic for LLM calls
 - [ ] Rate limiting for Gemini API
 - [ ] Basic analytics on dashboard (articles published this month, top SEO scores)
