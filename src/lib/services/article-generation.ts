@@ -8,7 +8,63 @@ import {
 } from '@/lib/prompts/article';
 import { calculateSEOScore } from '@/lib/seo/scoring';
 import { generateArticleJsonLd } from '@/lib/jsonld/generators';
+import { retrieveKnowledge } from '@/lib/knowledge';
 import * as db from '@/lib/db/queries';
+
+// ─── Content Velocity Controls ───────────────────────────────────────
+
+const VELOCITY_SCHEDULE = [
+  { maxMonth: 2, limit: 12 },
+  { maxMonth: 4, limit: 20 },
+  { maxMonth: Infinity, limit: 30 },
+] as const;
+
+// Engine launch date — used to calculate which velocity tier we're in
+const ENGINE_LAUNCH_DATE = new Date('2026-03-17');
+
+function getMonthlyArticleLimit(): number {
+  const now = new Date();
+  const monthsActive = Math.max(
+    0,
+    (now.getFullYear() - ENGINE_LAUNCH_DATE.getFullYear()) * 12 +
+      (now.getMonth() - ENGINE_LAUNCH_DATE.getMonth())
+  );
+
+  for (const tier of VELOCITY_SCHEDULE) {
+    if (monthsActive < tier.maxMonth) {
+      return tier.limit;
+    }
+  }
+  return 30;
+}
+
+export async function checkVelocityLimit(): Promise<{
+  allowed: boolean;
+  currentCount: number;
+  limit: number;
+}> {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+  const limit = getMonthlyArticleLimit();
+
+  const { count } = await db.getArticles({
+    limit: 1,
+    offset: 0,
+  });
+
+  // Count articles created this month by querying with date filter
+  const dbClient = (await import('@/lib/db/client')).createServiceClient();
+  const { count: monthCount } = await dbClient
+    .from('articles')
+    .select('id', { count: 'exact', head: true })
+    .gte('created_at', startOfMonth)
+    .neq('status', 'failed');
+
+  const currentCount = monthCount || 0;
+  return { allowed: currentCount < limit, currentCount, limit };
+}
+
+// ─── Article Generation ──────────────────────────────────────────────
 
 export interface GenerateArticleParams {
   pillarId: string;
@@ -25,6 +81,8 @@ export interface GenerateArticleResult {
   seoScore: number;
   wordCount: number;
   status: string;
+  knowledgeSources: string[];
+  factDensityScore: number;
 }
 
 export async function generateArticle(
@@ -38,6 +96,15 @@ export async function generateArticle(
     preGeneratedTitle,
     batchId,
   } = params;
+
+  // Check velocity limit
+  const velocity = await checkVelocityLimit();
+  if (!velocity.allowed) {
+    throw new Error(
+      `Monthly article limit reached (${velocity.currentCount}/${velocity.limit}). ` +
+        `Content velocity is ramped gradually to avoid scaled content abuse detection.`
+    );
+  }
 
   // 1. Fetch context
   const [pillar, category, location, internalLinks] = await Promise.all([
@@ -57,6 +124,15 @@ export async function generateArticle(
   });
 
   try {
+    // 2.5. Retrieve knowledge context (RAG step)
+    const knowledgeResult = retrieveKnowledge({
+      pillar: pillar.name,
+      category: category.name,
+      location: location?.city || null,
+      equipmentType: category.name,
+      industry: null,
+    });
+
     // 3. Generate article content (Step 1)
     const prompt = buildArticlePrompt({
       pillar: { name: pillar.name, description: pillar.description || '' },
@@ -69,11 +145,12 @@ export async function generateArticle(
       })),
       targetLength,
       preGeneratedTitle,
+      knowledgeContext: knowledgeResult.context || null,
     });
 
     const contentResult = await generateJSON(prompt, GeneratedArticleSchema, {
       systemPrompt:
-        'You are a technical content writer for SoCal Calibration, a precision calibration company in Southern California. Write authoritative, SEO-optimized articles.',
+        'You are a technical content writer for SoCal Calibration, a precision calibration company in Southern California. Write authoritative, SEO-optimized articles grounded in real standards, regulations, and technical specifications.',
       temperature: 0.7,
       maxTokens: 16384,
     });
@@ -138,6 +215,10 @@ export async function generateArticle(
       seo_score: seoAnalysis.total,
       seo_breakdown: seoAnalysis.breakdown,
       json_ld: jsonLd,
+      fact_density_score: seoAnalysis.factDensity,
+      fact_density_breakdown: seoAnalysis.breakdown.factDensity,
+      knowledge_sources: knowledgeResult.sources,
+      practitioner_notes_added: false,
     });
 
     return {
@@ -146,6 +227,8 @@ export async function generateArticle(
       seoScore: seoAnalysis.total,
       wordCount: generated.word_count,
       status: 'pending_review',
+      knowledgeSources: knowledgeResult.sources,
+      factDensityScore: seoAnalysis.factDensity,
     };
   } catch (error) {
     // Mark article as failed

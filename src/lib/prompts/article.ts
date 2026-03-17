@@ -53,6 +53,7 @@ interface ArticlePromptContext {
   internalLinks: Array<{ url: string; anchor_text: string; page_type: string }>;
   targetLength: ArticleLength;
   preGeneratedTitle?: string;
+  knowledgeContext?: string | null;
 }
 
 export function buildArticlePrompt(ctx: ArticlePromptContext): string {
@@ -85,6 +86,26 @@ When linking, use natural anchor text. Do not force links where they don't fit.
     ? `Use this exact title: "${ctx.preGeneratedTitle}"`
     : 'Generate an SEO-optimized title that includes the primary keyword.';
 
+  const knowledgeSection = ctx.knowledgeContext
+    ? `
+TECHNICAL REFERENCE MATERIAL:
+The following is factual reference material from industry standards, regulations, and equipment specifications. You MUST use this material to ground the article in specific, verifiable facts.
+
+${ctx.knowledgeContext}
+
+CITATION REQUIREMENTS:
+- You MUST cite at least 3 specific standards or regulations with clause numbers (e.g., "per ISO/IEC 17025:2017 Clause 6.4" or "as required by 21 CFR 820.72(a)")
+- Include at least 2 real numerical values from the reference material (tolerances, accuracy specs, intervals, percentages)
+- Reference specific equipment models, standard clause numbers, or regulation sections where relevant
+- Do NOT paraphrase generically — use the specific details provided above
+
+PRACTITIONER REVIEW PLACEHOLDERS:
+- Insert 2-3 HTML comments where a real-world practitioner observation would strengthen the article
+- Format: <!-- PRACTITIONER_NOTE: [suggestion for what to add here, e.g., "Add a specific example of an out-of-tolerance finding from your experience with pressure gauges in food manufacturing"] -->
+- Place these where first-hand experience, specific client stories, or regional observations would add unique value
+`
+    : '';
+
   return `You are an expert technical writer specializing in calibration, metrology, and quality assurance. Write a comprehensive, authoritative article for SoCal Calibration's blog.
 
 CONTENT PILLAR: ${ctx.pillar.name}
@@ -94,6 +115,7 @@ CATEGORY: ${ctx.category.name}
 ${ctx.category.description}
 ${locationContext}
 ${internalLinksSection}
+${knowledgeSection}
 TITLE: ${titleInstruction}
 
 ARTICLE REQUIREMENTS:

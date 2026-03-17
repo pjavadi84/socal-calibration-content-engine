@@ -13,6 +13,7 @@ export interface SEOAnalysis {
   structure: number;
   readability: number;
   links: number;
+  factDensity: number;
   breakdown: {
     title: { exists: boolean; length: number; optimalLength: boolean; score: number };
     metaDescription: { exists: boolean; length: number; optimalLength: boolean; score: number };
@@ -21,6 +22,7 @@ export interface SEOAnalysis {
     structure: { hasSlug: boolean; hasHeadings: boolean; headingHierarchy: boolean; score: number };
     readability: { averageSentenceLength: number; paragraphLength: number; score: number };
     links: { internalLinks: number; externalLinks: number; score: number };
+    factDensity: { citations: number; numericalDataPoints: number; namedSpecifics: number; score: number };
   };
 }
 
@@ -42,6 +44,7 @@ export function calculateSEOScore(article: ArticleContent): SEOAnalysis {
     structure: analyzeStructure(article.content || '', article.slug),
     readability: analyzeReadability(article.content || ''),
     links: analyzeLinks(article.content || ''),
+    factDensity: analyzeFactDensity(article.content || ''),
   };
 
   const total =
@@ -51,7 +54,8 @@ export function calculateSEOScore(article: ArticleContent): SEOAnalysis {
     breakdown.content.score +
     breakdown.structure.score +
     breakdown.readability.score +
-    breakdown.links.score;
+    breakdown.links.score +
+    breakdown.factDensity.score;
 
   return {
     total: Math.min(100, Math.max(0, total)),
@@ -62,6 +66,7 @@ export function calculateSEOScore(article: ArticleContent): SEOAnalysis {
     structure: breakdown.structure.score,
     readability: breakdown.readability.score,
     links: breakdown.links.score,
+    factDensity: breakdown.factDensity.score,
     breakdown,
   };
 }
@@ -94,7 +99,7 @@ function analyzeMetaDescription(metaDescription?: string) {
   return { exists: true, length, optimalLength, score: Math.min(10, score) };
 }
 
-// ─── Keywords (18 pts) ───────────────────────────────────────────────
+// ─── Keywords (15 pts, reduced from 18) ─────────────────────────────
 
 function analyzeKeywords(content: string, keywords: string[], primaryKeyword?: string) {
   const textContent = stripHTML(content).toLowerCase();
@@ -107,7 +112,7 @@ function analyzeKeywords(content: string, keywords: string[], primaryKeyword?: s
 
   if (primaryKeyword && keywords.length > 0) {
     primaryExists = true;
-    score += 6;
+    score += 5;
 
     const keywordLower = primaryKeyword.toLowerCase();
     const exactMatches = (textContent.match(new RegExp(escapeRegex(keywordLower), 'gi')) || []).length;
@@ -121,7 +126,7 @@ function analyzeKeywords(content: string, keywords: string[], primaryKeyword?: s
     const effectiveKeywords = keywordWords.length > 0 ? keywordWords.length : 1;
     density = wordCount > 0 ? (keywordOccurrences / effectiveKeywords / wordCount) * 100 : 0;
 
-    if (density >= 0.5 && density <= 3) score += 6;
+    if (density >= 0.5 && density <= 3) score += 5;
     else if (density >= 0.2 && density <= 5) score += 3;
     else if (density > 0) score += 1;
 
@@ -140,7 +145,7 @@ function analyzeKeywords(content: string, keywords: string[], primaryKeyword?: s
       checkSection(last100),
     ].filter(Boolean).length;
 
-    if (distributionCount >= 2) score += 6;
+    if (distributionCount >= 2) score += 5;
     else if (distributionCount === 1) score += 3;
   } else if (keywords.length > 0) {
     score += 3;
@@ -149,33 +154,33 @@ function analyzeKeywords(content: string, keywords: string[], primaryKeyword?: s
   return {
     primaryExists,
     density: Math.round(density * 100) / 100,
-    distribution: score >= 12,
-    score: Math.min(18, score),
+    distribution: score >= 10,
+    score: Math.min(15, score),
   };
 }
 
-// ─── Content (23 pts) ────────────────────────────────────────────────
+// ─── Content (16 pts, reduced from 23) ──────────────────────────────
 
 function analyzeContent(content: string) {
   const textContent = stripHTML(content);
   const wordCount = textContent.split(/\s+/).filter((w) => w.length > 0).length;
   let score = 0;
 
-  if (wordCount >= 2000) score += 13;
-  else if (wordCount >= 1500) score += 8;
-  else if (wordCount >= 1000) score += 5;
+  if (wordCount >= 2000) score += 9;
+  else if (wordCount >= 1500) score += 6;
+  else if (wordCount >= 1000) score += 4;
   else if (wordCount >= 500) score += 2;
 
   const headings = (content.match(/<h[23][^>]*>/gi) || []).length;
-  if (headings >= 5) score += 10;
-  else if (headings >= 3) score += 6;
-  else if (headings >= 1) score += 3;
+  if (headings >= 5) score += 7;
+  else if (headings >= 3) score += 4;
+  else if (headings >= 1) score += 2;
 
   return {
     wordCount,
     optimalWordCount: wordCount >= 2000,
     headings,
-    score: Math.min(23, score),
+    score: Math.min(16, score),
   };
 }
 
@@ -221,7 +226,7 @@ function analyzeReadability(content: string) {
   };
 }
 
-// ─── Links (10 pts) ──────────────────────────────────────────────────
+// ─── Links (8 pts, reduced from 10) ─────────────────────────────────
 
 function analyzeLinks(content: string) {
   const allLinks = content.match(/<a[^>]*href=["'][^"']*["'][^>]*>/gi) || [];
@@ -231,17 +236,88 @@ function analyzeLinks(content: string) {
   const totalLinks = allLinks.length;
 
   let score = 0;
-  if (totalLinks >= 3) score += 4;
-  else if (totalLinks >= 1) score += 2;
+  if (totalLinks >= 3) score += 3;
+  else if (totalLinks >= 1) score += 1;
 
   if (internalLinks >= 3 && internalLinks <= 10) score += 3;
   else if (internalLinks > 10) score += 2;
   else if (internalLinks >= 1) score += 1;
 
-  if (externalLinks >= 1 && externalLinks <= 5) score += 3;
-  else if (externalLinks > 5) score += 2;
+  if (externalLinks >= 1 && externalLinks <= 5) score += 2;
+  else if (externalLinks > 5) score += 1;
 
-  return { internalLinks, externalLinks, score: Math.min(10, score) };
+  return { internalLinks, externalLinks, score: Math.min(8, score) };
+}
+
+// ─── Fact Density (12 pts, NEW) ──────────────────────────────────────
+
+const STANDARD_PATTERNS = [
+  /\bISO\s*\/?(?:IEC\s*)?\d{4,5}(?:[:-]\d{4})?/gi,
+  /\b(?:ANSI|ASME|ASTM|IEEE|NFPA)\s*[A-Z]?\d+(?:\.\d+)?/gi,
+  /\b21\s*CFR\s*(?:Part\s*)?\d+(?:\.\d+)?/gi,
+  /\bNIST\b(?:\s+(?:SP|Handbook|HB)\s*\d+)?/gi,
+  /\bOSHA\s*(?:29\s*CFR\s*)?\d{4}\.\d+/gi,
+  /\bAS\s*9100/gi,
+  /\bNADCAP\b/gi,
+  /\bILAC[- ]G\d+/gi,
+  /\bFSMA\b/gi,
+  /\bHACCP\b/gi,
+  /\bIATF\s*16949/gi,
+  /\bISO\s*13485/gi,
+  /\bGMP\b|cGMP\b/gi,
+  /\bUSP\s*(?:Chapter\s*)?\d+/gi,
+  /\bMIL-STD-\d+/gi,
+  /\bNTEP\b/gi,
+];
+
+const NUMERICAL_PATTERN = /(?:±\s*)?[\d]+(?:\.\d+)?(?:\s*%|\s*°[CF]|\s*(?:psi|kPa|mm|µm|mg|kg|lb|N·?m|ft-?lb|mV|V|A|Ω|Hz|dB))\b/gi;
+const CLAUSE_PATTERN = /(?:Clause|Section|Part|Chapter|Subpart|Article)\s+\d+(?:\.\d+)*(?:\.\d+)?(?:\([a-z]\))?/gi;
+
+function analyzeFactDensity(content: string) {
+  const textContent = stripHTML(content);
+
+  // Count standard/regulation citations
+  const citationSet = new Set<string>();
+  for (const pattern of STANDARD_PATTERNS) {
+    const matches = textContent.match(pattern) || [];
+    for (const match of matches) {
+      citationSet.add(match.trim().toLowerCase());
+    }
+  }
+  const citations = citationSet.size;
+
+  // Count numerical data points (tolerances, percentages, intervals with units)
+  const numericalMatches = textContent.match(NUMERICAL_PATTERN) || [];
+  const numericalDataPoints = new Set(numericalMatches.map((m) => m.trim().toLowerCase())).size;
+
+  // Count named specifics (clause numbers, specific regulation sections)
+  const clauseMatches = textContent.match(CLAUSE_PATTERN) || [];
+  const namedSpecifics = new Set(clauseMatches.map((m) => m.trim().toLowerCase())).size;
+
+  // Scoring
+  let score = 0;
+
+  // Citations: 0-4 pts
+  if (citations >= 5) score += 4;
+  else if (citations >= 3) score += 3;
+  else if (citations >= 1) score += 2;
+
+  // Numerical data points: 0-4 pts
+  if (numericalDataPoints >= 5) score += 4;
+  else if (numericalDataPoints >= 3) score += 3;
+  else if (numericalDataPoints >= 1) score += 2;
+
+  // Named specifics: 0-4 pts
+  if (namedSpecifics >= 4) score += 4;
+  else if (namedSpecifics >= 2) score += 3;
+  else if (namedSpecifics >= 1) score += 2;
+
+  return {
+    citations,
+    numericalDataPoints,
+    namedSpecifics,
+    score: Math.min(12, score),
+  };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
