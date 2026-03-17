@@ -615,7 +615,7 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 
 - [x] Initialize Next.js 15 project with App Router
 - [x] Set up Tailwind CSS + shadcn/ui
-- [ ] Configure Supabase project (free tier)
+- [x] Configure Supabase project (free tier)
 - [x] Create database schema (migrations)
 - [x] Seed content matrix (pillars, categories, locations, internal links)
 - [x] Build Gemini LLM client wrapper (configurable provider)
