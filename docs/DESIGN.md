@@ -318,24 +318,47 @@ Supplements the local knowledge base with real-time data from **official, author
 
 **Authoritative API Integrations:**
 
+*Regulatory & Standards (Core):*
+
 | Source | API / Method | What It Provides | Use Case |
 |--------|-------------|-----------------|----------|
 | **FDA.gov** | openFDA API (free, no key required) | Device recalls, 483 observations, warning letters, guidance documents | FDA compliance articles, medical device content |
+| **FDA MAUDE** | openFDA device events API | Medical device adverse event reports | Medical device calibration failure examples |
+| **OSHA.gov** | OSHA Enforcement Data API (free) | Inspection data, citations, penalties by SIC code and region | OSHA compliance articles, SoCal-specific enforcement trends |
 | **Federal Register** | federalregister.gov API (free) | New/proposed rules from FDA, OSHA, EPA, NIST | Detecting regulatory changes that affect calibration |
 | **NIST.gov** | NIST Publications RSS / CSRC API | New special publications, handbook updates, SRM announcements | NIST traceability content, standards updates |
-| **OSHA.gov** | OSHA Enforcement Data API (free) | Inspection data, citations, penalties by SIC code and region | OSHA compliance articles, SoCal-specific enforcement trends |
 | **ISO.org** | ISO OBP API or RSS feeds | Standard revision status, new publications | Detecting ISO 17025/13485 revisions |
-| **FDA MAUDE** | openFDA device events API | Medical device adverse event reports | Medical device calibration failure examples |
 | **recalls.gov** | CPSC Recalls API (free) | Product recalls involving measurement/safety equipment | Equipment-specific content with real recall examples |
+
+*Industry-Specific:*
+
+| Source | API / Method | What It Provides | Use Case |
+|--------|-------------|-----------------|----------|
+| **FAA** | Service Difficulty Reports (free) | Aviation maintenance issues tied to measurement/calibration failures | Aerospace calibration articles with real failure examples |
+| **EPA ECHO** | Enforcement & Compliance History API (free) | Facility compliance data, monitoring equipment requirements by region | Environmental monitoring calibration, SoCal facility data |
+| **EPA AirNow** | AirNow API (free) | Air quality monitoring station data requiring calibrated equipment | Environmental/emissions monitoring content |
+| **NRC ADAMS** | NRC document search (free) | Nuclear facility inspection reports, heavy on calibration findings | Nuclear/energy industry calibration content |
+| **SAM.gov** | Entity Management API (free) | Federal contractor lookup by NAICS code and location | Identify SoCal defense/aerospace companies needing calibration |
+
+*Regional & Business Data:*
+
+| Source | API / Method | What It Provides | Use Case |
+|--------|-------------|-----------------|----------|
+| **Census Bureau** | Census Business Builder API (free) | Manufacturing employment by county, NAICS code breakdowns | Hard numbers for SoCal regional industry articles |
+| **BLS** | Bureau of Labor Statistics API (free) | Industry employment trends, wage data by metro area | SoCal manufacturing sector trends for regional content |
+| **SEC EDGAR** | EDGAR Full-Text Search API (free) | Public company filings (10-K, 8-K) for SoCal manufacturers | Facility expansions, new plants, capex on equipment |
 
 **How it works:**
 
 1. **When it runs:** After local KB retrieval (Step 2.5), Step 2.6 queries relevant authoritative APIs based on article topic
 2. **Query routing:** Article category determines which APIs to call:
-   - FDA compliance articles → openFDA (recalls, 483s, warning letters)
+   - FDA compliance articles → openFDA (recalls, 483s, warning letters) + FDA MAUDE
    - OSHA articles → OSHA enforcement data for SoCal SIC codes
-   - Standards articles → Federal Register for recent proposed rules
+   - Standards articles → Federal Register for recent proposed rules + NIST RSS
    - Equipment articles → CPSC recalls + openFDA device events
+   - Aerospace articles → FAA Service Difficulty Reports + SAM.gov contractors
+   - Environmental/energy articles → EPA ECHO + NRC ADAMS
+   - Regional/industry articles → Census Bureau + BLS + SEC EDGAR + SAM.gov
 3. **Data extraction:** API responses are filtered by relevance (date, geography, equipment type) and summarized into a `SUPPLEMENTARY AUTHORITATIVE CONTEXT` section (~1,000 tokens)
 4. **Caching:** Results cached for 7 days per query (regulatory data doesn't change hourly)
 5. **Safety guardrails:**
@@ -352,8 +375,8 @@ Retrieval Priority:
 │    Standards, equipment specs, regional     │
 ├─────────────────────────────────────────────┤
 │ 2. Authoritative Source APIs (~1K tokens)   │ ← Phase 6, official sources only
-│    FDA recalls/483s, OSHA enforcement,      │
-│    Federal Register rules, NIST pubs        │
+│    FDA/OSHA/NIST/FAA/EPA + Census/BLS/SEC  │
+│    Regulatory data, enforcement, industry   │
 ├─────────────────────────────────────────────┤
 │ 3. Practitioner Notes (post-generation)     │ ← Parham's first-hand experience
 │    Real-world observations, client          │
@@ -767,18 +790,34 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 ### Phase 6: Advanced Features (Future)
 
 **Authoritative Source API Integrations (RAG Tier 2):**
-- [ ] Integrate openFDA API (device recalls, 483 observations, warning letters)
+
+*Regulatory & Standards APIs:*
+- [ ] Integrate openFDA API (device recalls, 483 observations, warning letters, MAUDE device events)
 - [ ] Integrate OSHA Enforcement Data API (citations, inspections by SIC code and region)
 - [ ] Integrate Federal Register API (new/proposed rules from FDA, OSHA, NIST)
 - [ ] Integrate NIST Publications RSS/API (new special publications, handbook updates)
-- [ ] Add CPSC Recalls API and FDA MAUDE device events for equipment-specific content
-- [ ] Build query routing: article category → relevant APIs (e.g., FDA articles → openFDA)
+- [ ] Integrate CPSC Recalls API for equipment-specific recall data
+- [ ] Monitor ISO.org for standard revision announcements (ISO 17025, 13485, 6789)
+
+*Industry-Specific APIs:*
+- [ ] Integrate FAA Service Difficulty Reports (aerospace calibration failure examples)
+- [ ] Integrate EPA ECHO API (facility compliance data, monitoring equipment by region)
+- [ ] Integrate EPA AirNow API (air quality monitoring station calibration data)
+- [ ] Integrate NRC ADAMS (nuclear facility inspection reports with calibration findings)
+- [ ] Integrate SAM.gov Entity API (federal contractor lookup for SoCal defense/aerospace companies)
+
+*Regional & Business Data APIs:*
+- [ ] Integrate Census Bureau API (manufacturing employment by county, NAICS breakdowns)
+- [ ] Integrate BLS API (industry employment trends, wage data by SoCal metro area)
+- [ ] Integrate SEC EDGAR API (public company filings for SoCal manufacturer expansions)
+
+*Infrastructure:*
+- [ ] Build query routing: article category → relevant APIs
 - [ ] Add LLM summarization of API results into `SUPPLEMENTARY AUTHORITATIVE CONTEXT`
 - [ ] Implement 7-day result caching per query
 - [ ] Add safety guardrails: .gov-only sources, source URL attribution, local KB priority
 - [ ] Store authoritative sources in `knowledge_sources` with full URLs
 - [ ] Add authoritative retrieval toggle in dashboard settings (enable/disable per generation)
-- [ ] Monitor ISO.org for standard revision announcements (ISO 17025, 13485, 6789)
 
 **Other Advanced Features:**
 - [ ] AI image generation (article hero images via Gemini)
