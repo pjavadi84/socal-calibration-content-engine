@@ -318,35 +318,58 @@ Supplements the local knowledge base with real-time data from **official, author
 
 **Authoritative API Integrations:**
 
+All APIs are **free** ($0/month). Estimated usage: 24–150 API calls/month (well within all free tiers).
+
 *Regulatory & Standards (Core):*
 
-| Source | API / Method | What It Provides | Use Case |
-|--------|-------------|-----------------|----------|
-| **FDA.gov** | openFDA API (free, no key required) | Device recalls, 483 observations, warning letters, guidance documents | FDA compliance articles, medical device content |
-| **FDA MAUDE** | openFDA device events API | Medical device adverse event reports | Medical device calibration failure examples |
-| **OSHA.gov** | OSHA Enforcement Data API (free) | Inspection data, citations, penalties by SIC code and region | OSHA compliance articles, SoCal-specific enforcement trends |
-| **Federal Register** | federalregister.gov API (free) | New/proposed rules from FDA, OSHA, EPA, NIST | Detecting regulatory changes that affect calibration |
-| **NIST.gov** | NIST Publications RSS / CSRC API | New special publications, handbook updates, SRM announcements | NIST traceability content, standards updates |
-| **ISO.org** | ISO OBP API or RSS feeds | Standard revision status, new publications | Detecting ISO 17025/13485 revisions |
-| **recalls.gov** | CPSC Recalls API (free) | Product recalls involving measurement/safety equipment | Equipment-specific content with real recall examples |
+| Source | API / Method | Cost | Rate Limits | Auth | Notes |
+|--------|-------------|------|-------------|------|-------|
+| **openFDA** | api.fda.gov | Free | 240 req/min, 120K req/day (with key) | Free API key | Device recalls, 483s, warning letters, MAUDE events |
+| **OSHA** | DOL Enforcement Data (data.dol.gov) | Free | No published limits | None required | Inspections, citations, penalties by SIC code and region |
+| **Federal Register** | federalregister.gov/api/v1 | Free | No published limits | None required | New/proposed rules from FDA, OSHA, EPA, NIST |
+| **NIST** | RSS feeds (nist.gov) | Free | N/A (RSS) | None required | New publications, handbook updates, SRM announcements |
+| **CPSC Recalls** | cpsc.gov Recalls API | Free | No published limits | None required | Product recalls involving measurement/safety equipment |
+| **ISO.org** | No public API | N/A | N/A | N/A | **Gap:** No free API — use web monitoring or RSS for revision announcements |
 
 *Industry-Specific:*
 
-| Source | API / Method | What It Provides | Use Case |
-|--------|-------------|-----------------|----------|
-| **FAA** | Service Difficulty Reports (free) | Aviation maintenance issues tied to measurement/calibration failures | Aerospace calibration articles with real failure examples |
-| **EPA ECHO** | Enforcement & Compliance History API (free) | Facility compliance data, monitoring equipment requirements by region | Environmental monitoring calibration, SoCal facility data |
-| **EPA AirNow** | AirNow API (free) | Air quality monitoring station data requiring calibrated equipment | Environmental/emissions monitoring content |
-| **NRC ADAMS** | NRC document search (free) | Nuclear facility inspection reports, heavy on calibration findings | Nuclear/energy industry calibration content |
-| **SAM.gov** | Entity Management API (free) | Federal contractor lookup by NAICS code and location | Identify SoCal defense/aerospace companies needing calibration |
+| Source | API / Method | Cost | Rate Limits | Auth | Notes |
+|--------|-------------|------|-------------|------|-------|
+| **FAA SDR** | CSV bulk downloads (faa.gov) | Free | N/A (file download) | None required | **No live API** — periodic CSV download + local parsing |
+| **EPA ECHO** | echo.epa.gov via api.data.gov | Free | 1,000 req/hr (with key) | Free api.data.gov key | Facility compliance data, monitoring equipment by region |
+| **EPA AirNow** | AirNow API | Free | 500 req/hr per service | Free api.data.gov key | Air quality monitoring station calibration data |
+| **NRC ADAMS** | adams-api-developer.nrc.gov | Free | Not published | Portal registration (free) | Nuclear facility inspection reports — verify limits after registration |
+| **SAM.gov** | Entity Management API | Free | Public: 10 req/day; With role: 1,000 req/day | SAM.gov account + API key | **Caution:** Public tier very restrictive — register for SAM.gov role for 1,000/day |
 
 *Regional & Business Data:*
 
-| Source | API / Method | What It Provides | Use Case |
-|--------|-------------|-----------------|----------|
-| **Census Bureau** | Census Business Builder API (free) | Manufacturing employment by county, NAICS code breakdowns | Hard numbers for SoCal regional industry articles |
-| **BLS** | Bureau of Labor Statistics API (free) | Industry employment trends, wage data by metro area | SoCal manufacturing sector trends for regional content |
-| **SEC EDGAR** | EDGAR Full-Text Search API (free) | Public company filings (10-K, 8-K) for SoCal manufacturers | Facility expansions, new plants, capex on equipment |
+| Source | API / Method | Cost | Rate Limits | Auth | Notes |
+|--------|-------------|------|-------------|------|-------|
+| **Census Bureau** | api.census.gov | Free | 500 req/day (no key); unlimited (with key) | Free API key | Manufacturing employment by county, NAICS breakdowns |
+| **BLS** | bls.gov API v2.0 | Free | 500 req/day (v2.0 with key) | Free registration | Industry employment trends, wage data by SoCal metro |
+| **SEC EDGAR** | efts.sec.gov | Free | 10 req/sec, no daily cap | User-Agent header required (no key) | Public company filings for SoCal manufacturer expansions |
+
+**Registration summary:**
+
+| Requires Registration (free) | Zero Registration |
+|------------------------------|-------------------|
+| openFDA (API key) | Federal Register |
+| EPA ECHO (api.data.gov key) | CPSC Recalls |
+| EPA AirNow (api.data.gov key) | OSHA Enforcement |
+| SAM.gov (account + role) | NIST (RSS feeds) |
+| Census Bureau (API key) | |
+| BLS v2.0 (email registration) | |
+| NRC ADAMS (portal subscription) | |
+| SEC EDGAR (User-Agent header only) | |
+
+**Known gaps and workarounds:**
+
+| Gap | Workaround |
+|-----|-----------|
+| ISO.org has no public API | Monitor ISO press releases/newsletters; check OBP manually during KB freshness reviews |
+| FAA SDR has no live API | Download annual CSV files, parse locally, refresh quarterly |
+| SAM.gov public tier = 10 req/day | Register SAM.gov account with entity role for 1,000/day |
+| NRC ADAMS limits undocumented | Register on portal, test limits; contact apssupport.resource@nrc.gov if needed |
 
 **How it works:**
 
@@ -366,7 +389,7 @@ Supplements the local knowledge base with real-time data from **official, author
    - Authoritative-sourced facts are tagged with source URL in the prompt for LLM attribution
    - Local KB always takes priority — API context supplements, never overrides
    - Sources stored in `knowledge_sources` with full URLs for traceability
-6. **Cost:** Most APIs are **free** (openFDA, Federal Register, OSHA). Total: ~$0/month for API calls, ~$0.01/article for LLM summarization
+6. **Cost:** All APIs are **free** (government public data). Total: **$0/month** for API calls + ~$0.01/article for LLM summarization of results
 
 ```
 Retrieval Priority:
@@ -840,7 +863,7 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 | Supabase | Free | $0 | 500MB DB, more than enough |
 | Vercel | Hobby (free) | $0 | Sufficient for single-user dashboard |
 | Gemini API | Pay-as-you-go | ~$1–3 | ~12 articles/month initially at ~$0.10–0.15 each |
-| Authoritative APIs (Phase 6) | Free | $0 | openFDA, OSHA, Federal Register, NIST — all free public APIs |
+| Authoritative APIs (Phase 6) | Free | $0 | 15 sources — all free .gov/public APIs (openFDA, OSHA, EPA, FAA, Census, BLS, SEC, etc.) |
 | Inngest | Free | $0 | 5,000 runs/month free tier |
 | Domain (optional) | — | ~$1 | If using custom subdomain |
 | **Total** | | **~$1–4/month** | (Phase 6 authoritative APIs are free) |
