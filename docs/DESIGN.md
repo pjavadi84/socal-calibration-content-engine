@@ -172,7 +172,7 @@ External:
 | Database | Supabase (free tier) | PostgreSQL, auth, storage, generous free tier |
 | LLM | Google Gemini 2.0 Flash | Best cost-to-quality for SEO content (~$0.10/article) |
 | Knowledge Base | Markdown files + keyword retrieval | Simple RAG — ~25 files, no vector DB needed |
-| Web Retrieval (Phase 6) | Serper or Google Custom Search API | Live web context for recent updates, news, competitor intel |
+| Authoritative APIs (Phase 6) | openFDA, OSHA, Federal Register, NIST (all free) | Real-time regulatory data, enforcement trends, standard updates |
 | Background Jobs | Inngest | Event-driven, concurrency control, retries |
 | CMS Integration | WordPress REST API | Push articles as drafts, zero manual copy-paste |
 | Hosting | Vercel (free tier) | Zero cost for hobby project |
@@ -312,42 +312,53 @@ Simple keyword-based retrieval (~25 files, no vector DB needed):
 3. Top-scoring files are concatenated into a context string (max ~4,000 tokens)
 4. Context is injected into the article prompt as `TECHNICAL REFERENCE MATERIAL`
 
-#### Tier 2: Live Web Retrieval (Phase 6)
+#### Tier 2: Authoritative Source APIs (Phase 6)
 
-Supplements the local knowledge base with real-time information from the web:
+Supplements the local knowledge base with real-time data from **official, authoritative sources only** — not generic web search. Every data point is traceable to a government agency, standards body, or accreditation organization.
 
-1. **When it runs:** After local KB retrieval (Step 2.5), an optional Step 2.6 queries external sources for supplementary context
-2. **What it searches for:**
-   - Recent regulatory updates (e.g., new FDA guidance documents, ISO revision announcements)
-   - Current industry news relevant to the article topic (new equipment releases, recall notices)
-   - Regional business data (new SoCal facilities, company expansions, industry events)
-   - Competitor content analysis (what's ranking for target keywords)
-3. **Search strategy:**
-   - Use Google Custom Search API or Serper API for targeted queries built from pillar + category + location
-   - Query templates: `"{standard name}" latest revision {year}`, `"calibration" "{industry}" "{city}" news`, `"{equipment type}" recall OR update {year}`
-   - Limit to 3–5 search results per article to control costs and latency
-4. **Content extraction:** Fetch top search result pages, extract relevant text, summarize via LLM into a `SUPPLEMENTARY WEB CONTEXT` section (~1,000 tokens)
+**Authoritative API Integrations:**
+
+| Source | API / Method | What It Provides | Use Case |
+|--------|-------------|-----------------|----------|
+| **FDA.gov** | openFDA API (free, no key required) | Device recalls, 483 observations, warning letters, guidance documents | FDA compliance articles, medical device content |
+| **Federal Register** | federalregister.gov API (free) | New/proposed rules from FDA, OSHA, EPA, NIST | Detecting regulatory changes that affect calibration |
+| **NIST.gov** | NIST Publications RSS / CSRC API | New special publications, handbook updates, SRM announcements | NIST traceability content, standards updates |
+| **OSHA.gov** | OSHA Enforcement Data API (free) | Inspection data, citations, penalties by SIC code and region | OSHA compliance articles, SoCal-specific enforcement trends |
+| **ISO.org** | ISO OBP API or RSS feeds | Standard revision status, new publications | Detecting ISO 17025/13485 revisions |
+| **FDA MAUDE** | openFDA device events API | Medical device adverse event reports | Medical device calibration failure examples |
+| **recalls.gov** | CPSC Recalls API (free) | Product recalls involving measurement/safety equipment | Equipment-specific content with real recall examples |
+
+**How it works:**
+
+1. **When it runs:** After local KB retrieval (Step 2.5), Step 2.6 queries relevant authoritative APIs based on article topic
+2. **Query routing:** Article category determines which APIs to call:
+   - FDA compliance articles → openFDA (recalls, 483s, warning letters)
+   - OSHA articles → OSHA enforcement data for SoCal SIC codes
+   - Standards articles → Federal Register for recent proposed rules
+   - Equipment articles → CPSC recalls + openFDA device events
+3. **Data extraction:** API responses are filtered by relevance (date, geography, equipment type) and summarized into a `SUPPLEMENTARY AUTHORITATIVE CONTEXT` section (~1,000 tokens)
+4. **Caching:** Results cached for 7 days per query (regulatory data doesn't change hourly)
 5. **Safety guardrails:**
-   - Web-sourced facts are marked as `[web-sourced]` in the prompt so the LLM knows to attribute them
-   - Local KB always takes priority — web context supplements, never overrides
-   - Results are cached for 24 hours to avoid redundant API calls for similar articles
-   - Sources are stored in `knowledge_sources` alongside KB file paths for traceability
-6. **Cost estimate:** ~$0.01–0.03/article (Google Custom Search: $5/1000 queries, Serper: $0.004/query)
+   - Only data from `.gov`, ISO, ANSI, or accreditation body sources
+   - Authoritative-sourced facts are tagged with source URL in the prompt for LLM attribution
+   - Local KB always takes priority — API context supplements, never overrides
+   - Sources stored in `knowledge_sources` with full URLs for traceability
+6. **Cost:** Most APIs are **free** (openFDA, Federal Register, OSHA). Total: ~$0/month for API calls, ~$0.01/article for LLM summarization
 
 ```
 Retrieval Priority:
-┌─────────────────────────────────────────┐
-│ 1. Local Knowledge Base (~4K tokens)    │ ← Always used, curated & verified
-│    Standards, equipment specs, regional │
-├─────────────────────────────────────────┤
-│ 2. Live Web Retrieval (~1K tokens)      │ ← Phase 6, supplementary
-│    Recent updates, news, competitor     │
-│    intel, regional developments         │
-├─────────────────────────────────────────┤
-│ 3. Practitioner Notes (post-generation) │ ← Parham's first-hand experience
-│    Real-world observations, client      │
-│    stories, regional insights           │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│ 1. Local Knowledge Base (~4K tokens)        │ ← Always used, curated & verified
+│    Standards, equipment specs, regional     │
+├─────────────────────────────────────────────┤
+│ 2. Authoritative Source APIs (~1K tokens)   │ ← Phase 6, official sources only
+│    FDA recalls/483s, OSHA enforcement,      │
+│    Federal Register rules, NIST pubs        │
+├─────────────────────────────────────────────┤
+│ 3. Practitioner Notes (post-generation)     │ ← Parham's first-hand experience
+│    Real-world observations, client          │
+│    stories, regional insights               │
+└─────────────────────────────────────────────┘
 ```
 
 ### Practitioner Review Step
@@ -389,8 +400,8 @@ Following the proven Realience pattern: **knowledge retrieval → content first 
 │     Match knowledge-base files by pillar/category/equipment  │
 │     Return relevant standards, specs, regulations (~4K tokens)│
 │                                                              │
-│  2.6. RETRIEVE WEB CONTEXT (Phase 6, optional)               │
-│     Search web for recent updates, news, competitor content  │
+│  2.6. RETRIEVE AUTHORITATIVE CONTEXT (Phase 6, optional)     │
+│     Query FDA, OSHA, NIST, Federal Register APIs             │
 │     Summarize into supplementary context (~1K tokens)        │
 │                                                              │
 │  3. CREATE ARTICLE RECORD (status: "generating")             │
@@ -755,14 +766,19 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 
 ### Phase 6: Advanced Features (Future)
 
-**Live Web Retrieval (RAG Tier 2):**
-- [ ] Integrate search API (Google Custom Search or Serper) for real-time web queries
-- [ ] Build query template system (standard updates, industry news, regional data, competitor content)
-- [ ] Add web content extraction and LLM summarization into `SUPPLEMENTARY WEB CONTEXT`
-- [ ] Implement 24-hour result caching to reduce API costs
-- [ ] Add safety guardrails: `[web-sourced]` attribution, local KB priority, source traceability
-- [ ] Store web sources in `knowledge_sources` array alongside KB file paths
-- [ ] Add web retrieval toggle in dashboard settings (enable/disable per generation)
+**Authoritative Source API Integrations (RAG Tier 2):**
+- [ ] Integrate openFDA API (device recalls, 483 observations, warning letters)
+- [ ] Integrate OSHA Enforcement Data API (citations, inspections by SIC code and region)
+- [ ] Integrate Federal Register API (new/proposed rules from FDA, OSHA, NIST)
+- [ ] Integrate NIST Publications RSS/API (new special publications, handbook updates)
+- [ ] Add CPSC Recalls API and FDA MAUDE device events for equipment-specific content
+- [ ] Build query routing: article category → relevant APIs (e.g., FDA articles → openFDA)
+- [ ] Add LLM summarization of API results into `SUPPLEMENTARY AUTHORITATIVE CONTEXT`
+- [ ] Implement 7-day result caching per query
+- [ ] Add safety guardrails: .gov-only sources, source URL attribution, local KB priority
+- [ ] Store authoritative sources in `knowledge_sources` with full URLs
+- [ ] Add authoritative retrieval toggle in dashboard settings (enable/disable per generation)
+- [ ] Monitor ISO.org for standard revision announcements (ISO 17025, 13485, 6789)
 
 **Other Advanced Features:**
 - [ ] AI image generation (article hero images via Gemini)
@@ -785,10 +801,10 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 | Supabase | Free | $0 | 500MB DB, more than enough |
 | Vercel | Hobby (free) | $0 | Sufficient for single-user dashboard |
 | Gemini API | Pay-as-you-go | ~$1–3 | ~12 articles/month initially at ~$0.10–0.15 each |
-| Search API (Phase 6) | Pay-as-you-go | ~$0.50–1 | Serper ~$0.004/query × 3–5 queries/article |
+| Authoritative APIs (Phase 6) | Free | $0 | openFDA, OSHA, Federal Register, NIST — all free public APIs |
 | Inngest | Free | $0 | 5,000 runs/month free tier |
 | Domain (optional) | — | ~$1 | If using custom subdomain |
-| **Total** | | **~$1–5/month** | (Phase 6 adds ~$1 for web retrieval) |
+| **Total** | | **~$1–4/month** | (Phase 6 authoritative APIs are free) |
 
 ### Comparison with Current Vendor
 
