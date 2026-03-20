@@ -313,6 +313,8 @@ export type Database = {
           wp_username: string | null
           wp_app_password: string | null
           auto_push_on_approve: boolean
+          authoritative_apis_enabled: boolean
+          authoritative_apis_config: Json
           updated_at: string
         }
         Insert: {
@@ -321,6 +323,8 @@ export type Database = {
           wp_username?: string | null
           wp_app_password?: string | null
           auto_push_on_approve?: boolean
+          authoritative_apis_enabled?: boolean
+          authoritative_apis_config?: Json
           updated_at?: string
         }
         Update: {
@@ -329,7 +333,42 @@ export type Database = {
           wp_username?: string | null
           wp_app_password?: string | null
           auto_push_on_approve?: boolean
+          authoritative_apis_enabled?: boolean
+          authoritative_apis_config?: Json
           updated_at?: string
+        }
+        Relationships: []
+      }
+      api_cache: {
+        Row: {
+          id: string
+          api_source: string
+          query_key: string
+          raw_response: Json
+          summary: string | null
+          source_urls: string[]
+          fetched_at: string
+          expires_at: string
+        }
+        Insert: {
+          id?: string
+          api_source: string
+          query_key: string
+          raw_response: Json
+          summary?: string | null
+          source_urls?: string[]
+          fetched_at?: string
+          expires_at?: string
+        }
+        Update: {
+          id?: string
+          api_source?: string
+          query_key?: string
+          raw_response?: Json
+          summary?: string | null
+          source_urls?: string[]
+          fetched_at?: string
+          expires_at?: string
         }
         Relationships: []
       }
@@ -517,6 +556,8 @@ export interface Settings {
   wp_username: string | null;
   wp_app_password: string | null;
   auto_push_on_approve: boolean;
+  authoritative_apis_enabled: boolean;
+  authoritative_apis_config: Json;
   updated_at: string;
 }
 

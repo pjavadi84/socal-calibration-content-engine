@@ -8,6 +8,8 @@ interface RetrievalOptions {
   location?: string | null;
   equipmentType?: string | null;
   industry?: string | null;
+  pathPrefix?: string;
+  maxChars?: number;
 }
 
 interface RetrievalResult {
@@ -23,6 +25,11 @@ function normalizeForMatch(str: string): string {
 }
 
 function scoreFile(file: KnowledgeFile, options: RetrievalOptions): number {
+  // Path prefix filter — reject files that don't match
+  if (options.pathPrefix && !file.relativePath.startsWith(options.pathPrefix)) {
+    return -1;
+  }
+
   let score = 0;
   const pillarSlug = normalizeForMatch(options.pillar);
   const categorySlug = normalizeForMatch(options.category);
@@ -96,6 +103,7 @@ function truncateContent(content: string, maxChars: number): string {
 
 export function retrieveKnowledge(options: RetrievalOptions): RetrievalResult {
   const files = loadKnowledgeBase();
+  const charBudget = options.maxChars ?? MAX_CONTEXT_CHARS;
 
   // Score and rank all files
   const scored = files
@@ -108,9 +116,9 @@ export function retrieveKnowledge(options: RetrievalOptions): RetrievalResult {
   const selectedFiles: KnowledgeFile[] = [];
 
   for (const { file } of scored) {
-    if (totalChars + file.content.length > MAX_CONTEXT_CHARS) {
+    if (totalChars + file.content.length > charBudget) {
       // Try to fit a truncated version if we have room for at least 1000 chars
-      const remaining = MAX_CONTEXT_CHARS - totalChars;
+      const remaining = charBudget - totalChars;
       if (remaining > 1000) {
         selectedFiles.push({
           ...file,

@@ -276,6 +276,12 @@ knowledge-base/
 │   ├── aerospace.md              # AS9100, NADCAP, pyrometry
 │   ├── food-manufacturing.md     # FSMA, HACCP, temperature monitoring
 │   └── medical-devices.md        # ISO 13485, FDA QSR, biomedical
+├── business-context/             # Business impact & ROI data
+│   ├── pharma-business-impact.md      # Pharma cost/ROI data
+│   ├── aerospace-business-impact.md   # Aerospace cost/ROI data
+│   ├── food-business-impact.md        # Food manufacturing cost/ROI data
+│   ├── medical-devices-business-impact.md # Medical devices cost/ROI data
+│   └── general-business-impact.md     # General calibration ROI data
 └── regional/
     ├── socal-industries.md       # Major employers by city/county
     └── california-regulations.md # CA-specific measurement regulations
@@ -397,6 +403,9 @@ Retrieval Priority:
 │ 1. Local Knowledge Base (~4K tokens)        │ ← Always used, curated & verified
 │    Standards, equipment specs, regional     │
 ├─────────────────────────────────────────────┤
+│ 1b. Business Context (~1K tokens)           │ ← Always used, industry cost/ROI data
+│    Cost data, penalties, ROI, pain points   │
+├─────────────────────────────────────────────┤
 │ 2. Authoritative Source APIs (~1K tokens)   │ ← Phase 6, official sources only
 │    FDA/OSHA/NIST/FAA/EPA + Census/BLS/SEC  │
 │    Regulatory data, enforcement, industry   │
@@ -446,6 +455,10 @@ Following the proven Realience pattern: **knowledge retrieval → content first 
 │     Match knowledge-base files by pillar/category/equipment  │
 │     Return relevant standards, specs, regulations (~4K tokens)│
 │                                                              │
+│  2.55. RETRIEVE BUSINESS CONTEXT (Local RAG)                 │
+│     Match business-context/ files by industry (~1K tokens)   │
+│     Cost data, ROI metrics, decision-maker pain points       │
+│                                                              │
 │  2.6. RETRIEVE AUTHORITATIVE CONTEXT (Phase 6, optional)     │
 │     Query FDA, OSHA, NIST, Federal Register APIs             │
 │     Summarize into supplementary context (~1K tokens)        │
@@ -464,7 +477,8 @@ Following the proven Realience pattern: **knowledge retrieval → content first 
 │     Rule: ONLY keywords that appear in the article text      │
 │                                                              │
 │  6. CALCULATE SEO SCORE (algorithmic, no LLM)                │
-│     100-point scale across 8 categories (incl. fact density) │
+│     100-point scale across 9 categories                      │
+│     (incl. fact density + business relevance)                │
 │                                                              │
 │  7. GENERATE JSON-LD                                         │
 │     Article schema + FAQPage schema + BreadcrumbList         │
@@ -485,6 +499,7 @@ Following the proven Realience pattern: **knowledge retrieval → content first 
 The prompt will include:
 
 - **Technical reference material**: Retrieved from the knowledge base — real standards, clause numbers, tolerance values, equipment specs
+- **Business value framing**: Industry-specific cost data, ROI metrics, and decision-maker pain points from the business-context knowledge base
 - **Citation requirements**: Must cite ≥3 specific standards with clause numbers, include ≥2 real numerical values
 - **Service expertise context**: What the calibration type involves, standards, equipment
 - **Location context**: City name, region, nearby industries that need calibration
@@ -531,7 +546,7 @@ This two-step approach prevents the LLM from hallucinating keywords that don't e
 
 ## 7. SEO Scoring Algorithm
 
-Deterministic (no LLM cost), scores 0–100 across 8 categories. v2 replaces keyword density with placement-based checks, adds image/alt scoring, JSON-LD detection, Flesch-Kincaid reading grade, and increases Fact Density weight for the calibration niche.
+Deterministic (no LLM cost), scores 0–100 across 9 categories. v2 replaces keyword density with placement-based checks, adds image/alt scoring, JSON-LD detection, Flesch-Kincaid reading grade, and increases Fact Density weight for the calibration niche. v2.1 adds Business Relevance scoring and rebalances Fact Density and Content weights.
 
 ### Scoring Breakdown (100 points total)
 
@@ -540,11 +555,12 @@ Deterministic (no LLM cost), scores 0–100 across 8 categories. v2 replaces key
 | **Title** | 14 | Exists (5pts) + optimal length 50–60 chars (4pts) + keyword in title (5pts) |
 | **Meta Description** | 10 | Exists (3pts) + optimal length 120–155 chars (3pts) + keyword in meta (4pts) |
 | **Keyword Placement** | 13 | In first paragraph (4pts) + in at least one H2 (4pts) + distribution across article (5pts) |
-| **Content** | 15 | Word count 2000+ (7pts) + heading count 5+ H2/H3 (5pts) + images with alt text (3pts) |
+| **Content** | 13 | Word count 2000+ (6pts) + heading count 5+ H2/H3 (4pts) + images with alt text (3pts) |
 | **Structure** | 11 | Slug quality (3pts) + proper hierarchy H1→H2→H3 (4pts) + JSON-LD present (4pts) |
 | **Readability** | 10 | Avg sentence length 15–20 words (4pts) + paragraph length 3–5 sentences (3pts) + FK grade 8–12 (3pts) |
 | **Links** | 8 | Internal links 3–10 (3pts) + external links 1–5 (2pts) + total links 3+ (3pts) |
-| **Fact Density** | 19 | Standards/regulation citations (7pts) + numerical data points (6pts) + named specifics (6pts) |
+| **Fact Density** | 15 | Standards/regulation citations (6pts) + numerical data points (5pts) + named specifics (4pts) |
+| **Business Relevance** | 8 | Cost/financial language (3pts) + business consequence language (3pts) + decision-maker framing (2pts) |
 
 ### Key v2 Changes
 
@@ -553,15 +569,16 @@ Deterministic (no LLM cost), scores 0–100 across 8 categories. v2 replaces key
 - **Images with alt text** — articles with images rank better; alt text is a ranking signal.
 - **JSON-LD scoring** — the engine generates JSON-LD, now it scores whether it's present.
 - **Flesch-Kincaid grade** — reading grade 8–12 is ideal for technical-professional content. Uses syllable-counting heuristic.
-- **Fact Density increased to 19/100** — for a calibration niche, technical authority is the primary differentiator. Generic blogs can't score high here.
+- **Fact Density increased to 15/100** — for a calibration niche, technical authority is the primary differentiator. Generic blogs can't score high here.
+- **Business Relevance added at 8/100** — rewards articles that connect technical content to business outcomes (cost figures, ROI, decision-maker framing).
 
 ### Fact Density Scoring
 
-The Fact Density category (19 pts) rewards articles grounded in real technical data:
+The Fact Density category (15 pts) rewards articles grounded in real technical data:
 
-- **Citations (0–7 pts)**: References to standards (ISO 17025, 21 CFR 820, ANSI Z540.3, ASME B40.100, etc.). Detects via regex pattern matching against known standard formats.
-- **Numerical Data Points (0–6 pts)**: Tolerances, percentages, intervals with units (±0.1%, 12 months, ±1°C, 4:1 TUR, etc.).
-- **Named Specifics (0–6 pts)**: Clause numbers (Clause 6.4, Section 820.72(a)), regulation sections, specific equipment models.
+- **Citations (0–6 pts)**: References to standards (ISO 17025, 21 CFR 820, ANSI Z540.3, ASME B40.100, etc.). Detects via regex pattern matching against known standard formats.
+- **Numerical Data Points (0–5 pts)**: Tolerances, percentages, intervals with units (±0.1%, 12 months, ±1°C, 4:1 TUR, etc.).
+- **Named Specifics (0–4 pts)**: Clause numbers (Clause 6.4, Section 820.72(a)), regulation sections, specific equipment models.
 
 This category directly incentivizes the RAG-grounded content that differentiates articles from generic AI output.
 
@@ -1058,6 +1075,12 @@ socal-calibration-content-engine/
 │   │   ├── aerospace.md
 │   │   ├── food-manufacturing.md
 │   │   └── medical-devices.md
+│   ├── business-context/          # Business impact & ROI data
+│   │   ├── pharma-business-impact.md
+│   │   ├── aerospace-business-impact.md
+│   │   ├── food-business-impact.md
+│   │   ├── medical-devices-business-impact.md
+│   │   └── general-business-impact.md
 │   └── regional/                  # SoCal-specific information
 │       ├── socal-industries.md
 │       └── california-regulations.md

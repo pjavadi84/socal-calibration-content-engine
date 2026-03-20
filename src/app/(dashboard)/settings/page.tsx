@@ -17,12 +17,26 @@ import { Separator } from '@/components/ui/separator';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface ApiConfig {
+  openfda: boolean;
+  osha: boolean;
+  federal_register: boolean;
+}
+
 interface SettingsForm {
   wp_site_url: string;
   wp_username: string;
   wp_app_password: string;
   auto_push_on_approve: boolean;
+  authoritative_apis_enabled: boolean;
+  authoritative_apis_config: ApiConfig;
 }
+
+const DEFAULT_API_CONFIG: ApiConfig = {
+  openfda: true,
+  osha: true,
+  federal_register: true,
+};
 
 export default function SettingsPage() {
   const [form, setForm] = useState<SettingsForm>({
@@ -30,6 +44,8 @@ export default function SettingsPage() {
     wp_username: '',
     wp_app_password: '',
     auto_push_on_approve: false,
+    authoritative_apis_enabled: false,
+    authoritative_apis_config: DEFAULT_API_CONFIG,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -48,6 +64,11 @@ export default function SettingsPage() {
           wp_username: data.wp_username || '',
           wp_app_password: data.wp_app_password || '',
           auto_push_on_approve: data.auto_push_on_approve ?? false,
+          authoritative_apis_enabled: data.authoritative_apis_enabled ?? false,
+          authoritative_apis_config: {
+            ...DEFAULT_API_CONFIG,
+            ...(data.authoritative_apis_config || {}),
+          },
         });
       } catch {
         toast.error('Failed to load settings');
@@ -73,6 +94,11 @@ export default function SettingsPage() {
         wp_username: data.wp_username || '',
         wp_app_password: data.wp_app_password || '',
         auto_push_on_approve: data.auto_push_on_approve ?? false,
+        authoritative_apis_enabled: data.authoritative_apis_enabled ?? false,
+        authoritative_apis_config: {
+          ...DEFAULT_API_CONFIG,
+          ...(data.authoritative_apis_config || {}),
+        },
       });
       toast.success('Settings saved');
     } catch {
@@ -112,6 +138,16 @@ export default function SettingsPage() {
     } finally {
       setTesting(false);
     }
+  }
+
+  function updateApiConfig(key: keyof ApiConfig, value: boolean) {
+    setForm({
+      ...form,
+      authoritative_apis_config: {
+        ...form.authoritative_apis_config,
+        [key]: value,
+      },
+    });
   }
 
   if (loading) {
@@ -213,6 +249,89 @@ export default function SettingsPage() {
                 setForm({ ...form, auto_push_on_approve: checked })
               }
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>Authoritative Data Sources</CardTitle>
+          <CardDescription>
+            Enrich articles with real-time government regulatory data
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="auth-apis-enabled">Enable authoritative APIs</Label>
+              <p className="text-sm text-muted-foreground">
+                Fetch live data from government APIs during article generation
+              </p>
+            </div>
+            <Switch
+              id="auth-apis-enabled"
+              checked={form.authoritative_apis_enabled}
+              onCheckedChange={(checked) =>
+                setForm({ ...form, authoritative_apis_enabled: checked })
+              }
+            />
+          </div>
+
+          {form.authoritative_apis_enabled && (
+            <>
+              <Separator />
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="api-openfda">openFDA</Label>
+                    <p className="text-sm text-muted-foreground">
+                      FDA device recalls, 483 observations, MAUDE reports
+                    </p>
+                  </div>
+                  <Switch
+                    id="api-openfda"
+                    checked={form.authoritative_apis_config.openfda}
+                    onCheckedChange={(checked) => updateApiConfig('openfda', checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="api-osha">OSHA</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Enforcement inspections and citations
+                    </p>
+                  </div>
+                  <Switch
+                    id="api-osha"
+                    checked={form.authoritative_apis_config.osha}
+                    onCheckedChange={(checked) => updateApiConfig('osha', checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="api-federal-register">Federal Register</Label>
+                    <p className="text-sm text-muted-foreground">
+                      New and proposed regulatory rules
+                    </p>
+                  </div>
+                  <Switch
+                    id="api-federal-register"
+                    checked={form.authoritative_apis_config.federal_register}
+                    onCheckedChange={(checked) => updateApiConfig('federal_register', checked)}
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          <div className="flex gap-2">
+            <Button onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="mr-1 size-4 animate-spin" />}
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
           </div>
         </CardContent>
       </Card>

@@ -31,6 +31,8 @@ export async function PUT(request: NextRequest) {
     if (body.wp_site_url !== undefined) updates.wp_site_url = body.wp_site_url;
     if (body.wp_username !== undefined) updates.wp_username = body.wp_username;
     if (body.auto_push_on_approve !== undefined) updates.auto_push_on_approve = body.auto_push_on_approve;
+    if (body.authoritative_apis_enabled !== undefined) updates.authoritative_apis_enabled = body.authoritative_apis_enabled;
+    if (body.authoritative_apis_config !== undefined) updates.authoritative_apis_config = body.authoritative_apis_config;
 
     // Only update password if it's not the masked value
     if (body.wp_app_password !== undefined && !body.wp_app_password.startsWith('••••')) {

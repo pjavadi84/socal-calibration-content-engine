@@ -9,6 +9,7 @@ import {
 import { calculateSEOScore } from '@/lib/seo/scoring';
 import { generateArticleJsonLd } from '@/lib/jsonld/generators';
 import { retrieveKnowledge } from '@/lib/knowledge';
+import { retrieveAuthoritativeContext } from '@/lib/authoritative';
 import * as db from '@/lib/db/queries';
 
 // ─── Content Velocity Controls ───────────────────────────────────────
@@ -133,6 +134,38 @@ export async function generateArticle(
       industry: null,
     });
 
+    // 2.55. Retrieve business context
+    const businessResult = retrieveKnowledge({
+      pillar: pillar.name,
+      category: category.name,
+      location: location?.city || null,
+      equipmentType: null,
+      industry: category.name,
+      pathPrefix: 'business-context/',
+      maxChars: 3000,
+    });
+
+    // 2.6. Retrieve authoritative context (Phase 6)
+    let authoritativeContext = { context: '', sources: [] as string[] };
+    try {
+      const settings = await db.getSettings();
+      if (settings.authoritative_apis_enabled) {
+        const apiConfig = settings.authoritative_apis_config as Record<string, boolean>;
+        authoritativeContext = await retrieveAuthoritativeContext(
+          {
+            pillar: pillar.name,
+            category: category.name,
+            location: location?.city || null,
+            equipmentType: category.name,
+            industry: null,
+          },
+          apiConfig
+        );
+      }
+    } catch (err) {
+      console.error('Authoritative API retrieval failed, continuing without:', err);
+    }
+
     // 3. Generate article content (Step 1)
     const prompt = buildArticlePrompt({
       pillar: { name: pillar.name, description: pillar.description || '' },
@@ -146,6 +179,8 @@ export async function generateArticle(
       targetLength,
       preGeneratedTitle,
       knowledgeContext: knowledgeResult.context || null,
+      authoritativeContext: authoritativeContext.context || null,
+      businessContext: businessResult.context || null,
     });
 
     const contentResult = await generateJSON(prompt, GeneratedArticleSchema, {
@@ -219,7 +254,7 @@ export async function generateArticle(
       json_ld: jsonLd,
       fact_density_score: seoAnalysis.factDensity,
       fact_density_breakdown: seoAnalysis.breakdown.factDensity,
-      knowledge_sources: knowledgeResult.sources,
+      knowledge_sources: [...knowledgeResult.sources, ...businessResult.sources, ...authoritativeContext.sources],
       practitioner_notes_added: false,
     });
 

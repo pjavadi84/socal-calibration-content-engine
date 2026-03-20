@@ -10,6 +10,12 @@
  *  - JSON-LD presence scoring added
  *  - Flesch-Kincaid reading grade added
  *  - Fact Density weight increased from 12 → 19 (calibration niche differentiator)
+ *
+ * v2.1 changes:
+ *  - Business Relevance scoring added (8 pts)
+ *  - Fact Density reduced from 19 → 15 (-4)
+ *  - Content reduced from 15 → 13 (-2)
+ *  - Subtracted points redistributed to new businessRelevance component
  */
 
 export interface SEOAnalysis {
@@ -22,6 +28,7 @@ export interface SEOAnalysis {
   readability: number;
   links: number;
   factDensity: number;
+  businessRelevance: number;
   breakdown: {
     title: { exists: boolean; length: number; optimalLength: boolean; keywordInTitle: boolean; score: number; maxScore: number };
     metaDescription: { exists: boolean; length: number; optimalLength: boolean; keywordInMeta: boolean; score: number; maxScore: number };
@@ -31,6 +38,7 @@ export interface SEOAnalysis {
     readability: { averageSentenceLength: number; paragraphLength: number; fleschKincaidGrade: number; score: number; maxScore: number };
     links: { internalLinks: number; externalLinks: number; score: number; maxScore: number };
     factDensity: { citations: number; numericalDataPoints: number; namedSpecifics: number; score: number; maxScore: number };
+    businessRelevance: { costLanguage: number; consequenceLanguage: number; decisionMakerFraming: number; score: number; maxScore: number };
   };
 }
 
@@ -57,6 +65,7 @@ export function calculateSEOScore(article: ArticleContent): SEOAnalysis {
     readability: analyzeReadability(article.content || ''),
     links: analyzeLinks(article.content || ''),
     factDensity: analyzeFactDensity(article.content || ''),
+    businessRelevance: analyzeBusinessRelevance(article.content || ''),
   };
 
   const total =
@@ -67,7 +76,8 @@ export function calculateSEOScore(article: ArticleContent): SEOAnalysis {
     breakdown.structure.score +
     breakdown.readability.score +
     breakdown.links.score +
-    breakdown.factDensity.score;
+    breakdown.factDensity.score +
+    breakdown.businessRelevance.score;
 
   return {
     total: Math.min(100, Math.max(0, total)),
@@ -79,6 +89,7 @@ export function calculateSEOScore(article: ArticleContent): SEOAnalysis {
     readability: breakdown.readability.score,
     links: breakdown.links.score,
     factDensity: breakdown.factDensity.score,
+    businessRelevance: breakdown.businessRelevance.score,
     breakdown,
   };
 }
@@ -220,22 +231,22 @@ function analyzeKeywordPlacement(content: string, primaryWords: string[]) {
   return { inFirstParagraph, inH2, distribution, score: Math.min(13, score), maxScore: 13 };
 }
 
-// ─── Content (15 pts) ────────────────────────────────────────────────
+// ─── Content (13 pts) ────────────────────────────────────────────────
 
 function analyzeContent(content: string) {
   const textContent = stripHTML(content);
   const wordCount = textContent.split(/\s+/).filter((w) => w.length > 0).length;
   let score = 0;
 
-  // Word count: 7 pts
-  if (wordCount >= 2000) score += 7;
-  else if (wordCount >= 1500) score += 5;
+  // Word count: 6 pts
+  if (wordCount >= 2000) score += 6;
+  else if (wordCount >= 1500) score += 4;
   else if (wordCount >= 1000) score += 3;
   else if (wordCount >= 500) score += 1;
 
-  // Headings: 5 pts
+  // Headings: 4 pts
   const headings = (content.match(/<h[23][^>]*>/gi) || []).length;
-  if (headings >= 5) score += 5;
+  if (headings >= 5) score += 4;
   else if (headings >= 3) score += 3;
   else if (headings >= 1) score += 1;
 
@@ -254,8 +265,8 @@ function analyzeContent(content: string) {
     headings,
     imagesWithAlt,
     totalImages,
-    score: Math.min(15, score),
-    maxScore: 15,
+    score: Math.min(13, score),
+    maxScore: 13,
   };
 }
 
@@ -350,7 +361,7 @@ function analyzeLinks(content: string) {
   return { internalLinks, externalLinks, score: Math.min(8, score), maxScore: 8 };
 }
 
-// ─── Fact Density (19 pts) ──────────────────────────────────────────
+// ─── Fact Density (15 pts) ──────────────────────────────────────────
 
 const STANDARD_PATTERNS = [
   /\bISO\s*\/?(?:IEC\s*)?\d{4,5}(?:[:-]\d{4})?/gi,
@@ -397,28 +408,110 @@ function analyzeFactDensity(content: string) {
 
   let score = 0;
 
-  // Citations: 0–7 pts
-  if (citations >= 7) score += 7;
+  // Citations: 0–6 pts
+  if (citations >= 7) score += 6;
   else if (citations >= 5) score += 5;
   else if (citations >= 3) score += 4;
   else if (citations >= 1) score += 2;
 
-  // Numerical data points: 0–6 pts
-  if (numericalDataPoints >= 8) score += 6;
-  else if (numericalDataPoints >= 5) score += 5;
+  // Numerical data points: 0–5 pts
+  if (numericalDataPoints >= 8) score += 5;
+  else if (numericalDataPoints >= 5) score += 4;
   else if (numericalDataPoints >= 3) score += 3;
   else if (numericalDataPoints >= 1) score += 1;
 
-  // Named specifics: 0–6 pts
-  if (namedSpecifics >= 5) score += 6;
-  else if (namedSpecifics >= 3) score += 4;
+  // Named specifics: 0–4 pts
+  if (namedSpecifics >= 5) score += 4;
+  else if (namedSpecifics >= 3) score += 3;
   else if (namedSpecifics >= 1) score += 2;
 
   return {
     citations,
     numericalDataPoints,
     namedSpecifics,
-    score: Math.min(19, score),
-    maxScore: 19,
+    score: Math.min(15, score),
+    maxScore: 15,
+  };
+}
+
+// ─── Business Relevance (8 pts) ─────────────────────────────────────
+
+const COST_LANGUAGE_PATTERNS = [
+  /\$[\d,]+(?:\.\d+)?(?:\s*(?:million|billion|thousand|M|B|K))?\b/gi,
+  /\bcost(?:s|ing)?\s+of\b/gi,
+  /\b(?:penalty|penalties|fine|fines)\b/gi,
+  /\bROI\b/gi,
+  /\b(?:savings?|save)\b/gi,
+  /\bremediation\b/gi,
+  /\bbudget\b/gi,
+];
+
+const CONSEQUENCE_LANGUAGE_PATTERNS = [
+  /\baudit\s+fail(?:ure|ed|s|ing)?\b/gi,
+  /\bwarning\s+letter/gi,
+  /\bproduction\s+(?:delay|downtime|halt|shutdown)/gi,
+  /\brecall(?:s|ed)?\b/gi,
+  /\blost\s+(?:contract|revenue|business)/gi,
+  /\bnonconformance|non-conformance/gi,
+  /\bde-?listing\b/gi,
+  /\bscrap(?:ped)?\b/gi,
+  /\brework\b/gi,
+  /\bconsent\s+decree/gi,
+];
+
+const DECISION_MAKER_PATTERNS = [
+  /\bquality\s+manager/gi,
+  /\brisk\s+management/gi,
+  /\bbottom\s+line/gi,
+  /\bcompetitive\s+advantage/gi,
+  /\bplant\s+manager/gi,
+  /\bcompliance\s+officer/gi,
+  /\bcost\s+of\s+quality/gi,
+  /\bbudget\s+justification/gi,
+];
+
+function analyzeBusinessRelevance(content: string) {
+  const textContent = stripHTML(content);
+
+  // Cost/financial language: 0–3 pts
+  let costMatches = 0;
+  for (const pattern of COST_LANGUAGE_PATTERNS) {
+    const matches = textContent.match(pattern);
+    if (matches) costMatches += matches.length;
+  }
+  let costLanguage = 0;
+  if (costMatches >= 5) costLanguage = 3;
+  else if (costMatches >= 3) costLanguage = 2;
+  else if (costMatches >= 1) costLanguage = 1;
+
+  // Business consequence language: 0–3 pts
+  let consequenceMatches = 0;
+  for (const pattern of CONSEQUENCE_LANGUAGE_PATTERNS) {
+    const matches = textContent.match(pattern);
+    if (matches) consequenceMatches += matches.length;
+  }
+  let consequenceLanguage = 0;
+  if (consequenceMatches >= 5) consequenceLanguage = 3;
+  else if (consequenceMatches >= 3) consequenceLanguage = 2;
+  else if (consequenceMatches >= 1) consequenceLanguage = 1;
+
+  // Decision-maker framing: 0–2 pts
+  let decisionMakerMatches = 0;
+  for (const pattern of DECISION_MAKER_PATTERNS) {
+    const matches = textContent.match(pattern);
+    if (matches) decisionMakerMatches += matches.length;
+  }
+  let decisionMakerFraming = 0;
+  if (decisionMakerMatches >= 3) decisionMakerFraming = 2;
+  else if (decisionMakerMatches >= 1) decisionMakerFraming = 1;
+
+  const score = costLanguage + consequenceLanguage + decisionMakerFraming;
+
+  return {
+    costLanguage,
+    consequenceLanguage,
+    decisionMakerFraming,
+    score: Math.min(8, score),
+    maxScore: 8,
   };
 }

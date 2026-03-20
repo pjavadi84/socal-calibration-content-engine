@@ -54,6 +54,8 @@ interface ArticlePromptContext {
   targetLength: ArticleLength;
   preGeneratedTitle?: string;
   knowledgeContext?: string | null;
+  authoritativeContext?: string | null;
+  businessContext?: string | null;
 }
 
 export function buildArticlePrompt(ctx: ArticlePromptContext): string {
@@ -106,6 +108,37 @@ PRACTITIONER REVIEW PLACEHOLDERS:
 `
     : '';
 
+  const businessSection = ctx.businessContext
+    ? `
+BUSINESS VALUE FRAMING:
+${ctx.businessContext}
+
+BUSINESS CONTEXT USAGE RULES:
+- Integrate business impact naturally — do NOT create a separate "Business Case" section
+- Lead at least one H2 section with a business problem, then provide the technical solution
+- Include at least one specific cost figure, penalty amount, or ROI metric
+- Connect technical requirements to business outcomes
+- Use pain-point language for decision-makers (quality managers, plant managers, compliance officers)
+- Do NOT fabricate financial figures — only use numbers from the reference material
+`
+    : '';
+
+  const authoritativeSection = ctx.authoritativeContext
+    ? `
+SUPPLEMENTARY AUTHORITATIVE CONTEXT:
+The following data comes from official government sources (FDA, OSHA, Federal Register).
+Use these real data points to strengthen the article with current, verifiable information.
+
+${ctx.authoritativeContext}
+
+AUTHORITATIVE DATA USAGE RULES:
+- Cite the specific source (e.g., "According to FDA enforcement data...")
+- Include specific dates, case numbers, or record identifiers when available
+- Do NOT speculate beyond what the data shows
+- This data supplements the Technical Reference Material above - reference material takes priority
+`
+    : '';
+
   return `You are an expert technical writer specializing in calibration, metrology, and quality assurance. Write a comprehensive, authoritative article for SoCal Calibration's blog.
 
 CONTENT PILLAR: ${ctx.pillar.name}
@@ -116,6 +149,8 @@ ${ctx.category.description}
 ${locationContext}
 ${internalLinksSection}
 ${knowledgeSection}
+${authoritativeSection}
+${businessSection}
 TITLE: ${titleInstruction}
 
 ARTICLE REQUIREMENTS:
@@ -125,6 +160,7 @@ ARTICLE REQUIREMENTS:
 - Write in a professional but approachable tone
 - Include specific technical details that demonstrate expertise
 - Naturally incorporate calibration terminology and industry jargon
+- Balance technical depth with business relevance — every major section should connect to a practical business outcome
 - End with a clear call-to-action mentioning SoCal Calibration's services
 - Include 3-5 FAQ items that answer common questions about the topic
 
