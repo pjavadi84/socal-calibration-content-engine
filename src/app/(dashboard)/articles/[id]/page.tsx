@@ -32,7 +32,7 @@ type Article = Record<string, unknown> & {
   slug: string | null;
   word_count: number | null;
   seo_score: number | null;
-  seo_score_breakdown: Record<string, unknown> | null;
+  seo_breakdown: Record<string, unknown> | null;
   fact_density_score: number | null;
   fact_density_breakdown: Record<string, unknown> | null;
   seo_keywords: string[] | null;
@@ -130,7 +130,7 @@ export default function ArticleDetailPage({
     return <p className="py-20 text-center text-muted-foreground">Article not found</p>;
   }
 
-  const seoBreakdown = article.seo_score_breakdown as Record<string, { score: number; maxScore: number }> | null;
+  const seoBreakdown = article.seo_breakdown as Record<string, { score: number; maxScore: number }> | null;
 
   return (
     <div className="space-y-6">
@@ -278,7 +278,9 @@ export default function ArticleDetailPage({
               <CardContent>
                 <div className="text-4xl font-bold">
                   {article.fact_density_score ?? '—'}
-                  <span className="text-lg text-muted-foreground">/17</span>
+                  <span className="text-lg text-muted-foreground">
+                    /{seoBreakdown?.factDensity?.maxScore ?? 19}
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -290,22 +292,25 @@ export default function ArticleDetailPage({
                 <CardTitle className="text-sm font-medium">Score Breakdown</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {Object.entries(seoBreakdown).map(([key, val]) => (
-                  <div key={key} className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                      <span className="font-mono">
-                        {val.score}/{val.maxScore}
-                      </span>
+                {Object.entries(seoBreakdown).map(([key, val]) => {
+                  const max = val.maxScore || 15;
+                  return (
+                    <div key={key} className="space-y-1">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                        <span className="font-mono">
+                          {val.score}/{max}
+                        </span>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-muted">
+                        <div
+                          className="h-2 rounded-full bg-primary"
+                          style={{ width: `${(val.score / max) * 100}%` }}
+                        />
+                      </div>
                     </div>
-                    <div className="h-2 w-full rounded-full bg-muted">
-                      <div
-                        className="h-2 rounded-full bg-primary"
-                        style={{ width: `${(val.score / val.maxScore) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
           )}

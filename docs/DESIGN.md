@@ -531,28 +531,37 @@ This two-step approach prevents the LLM from hallucinating keywords that don't e
 
 ## 7. SEO Scoring Algorithm
 
-Ported from the Realience platform. Deterministic (no LLM cost), scores 0–100 across 8 categories:
+Deterministic (no LLM cost), scores 0–100 across 8 categories. v2 replaces keyword density with placement-based checks, adds image/alt scoring, JSON-LD detection, Flesch-Kincaid reading grade, and increases Fact Density weight for the calibration niche.
 
 ### Scoring Breakdown (100 points total)
 
 | Category | Max Points | What It Measures |
 |----------|-----------|-----------------|
-| **Title** | 14 | Exists (8pts) + optimal length 50–60 chars (6pts) |
-| **Meta Description** | 10 | Exists (5pts) + optimal length 150–160 chars (5pts) |
-| **Keywords** | 15 | Primary keyword present (5pts) + density 0.5–3% (5pts) + distribution across article (5pts) |
-| **Content** | 16 | Word count 2000+ (9pts) + heading count 5+ H2/H3 (7pts) |
-| **Structure** | 13 | Slug quality (5pts) + has headings (4pts) + proper hierarchy H1→H2→H3 (4pts) |
-| **Readability** | 12 | Avg sentence length 15–20 words (6pts) + paragraph length 3–5 sentences (6pts) |
-| **Links** | 8 | Internal links 3–5 (3pts) + external links 1–5 (2pts) + total links 3+ (3pts) |
-| **Fact Density** | 12 | Standards/regulation citations (4pts) + numerical data points (4pts) + named specifics (4pts) |
+| **Title** | 14 | Exists (5pts) + optimal length 50–60 chars (4pts) + keyword in title (5pts) |
+| **Meta Description** | 10 | Exists (3pts) + optimal length 120–155 chars (3pts) + keyword in meta (4pts) |
+| **Keyword Placement** | 13 | In first paragraph (4pts) + in at least one H2 (4pts) + distribution across article (5pts) |
+| **Content** | 15 | Word count 2000+ (7pts) + heading count 5+ H2/H3 (5pts) + images with alt text (3pts) |
+| **Structure** | 11 | Slug quality (3pts) + proper hierarchy H1→H2→H3 (4pts) + JSON-LD present (4pts) |
+| **Readability** | 10 | Avg sentence length 15–20 words (4pts) + paragraph length 3–5 sentences (3pts) + FK grade 8–12 (3pts) |
+| **Links** | 8 | Internal links 3–10 (3pts) + external links 1–5 (2pts) + total links 3+ (3pts) |
+| **Fact Density** | 19 | Standards/regulation citations (7pts) + numerical data points (6pts) + named specifics (6pts) |
 
-### Fact Density Scoring (New)
+### Key v2 Changes
 
-The Fact Density category rewards articles grounded in real technical data:
+- **Keyword density dropped** — replaced with keyword placement checks (title, first paragraph, H2s, distribution). Placement matters more than density for modern Google.
+- **Meta description range fixed** — 120–155 chars (mobile truncation at ~120, desktop at ~160).
+- **Images with alt text** — articles with images rank better; alt text is a ranking signal.
+- **JSON-LD scoring** — the engine generates JSON-LD, now it scores whether it's present.
+- **Flesch-Kincaid grade** — reading grade 8–12 is ideal for technical-professional content. Uses syllable-counting heuristic.
+- **Fact Density increased to 19/100** — for a calibration niche, technical authority is the primary differentiator. Generic blogs can't score high here.
 
-- **Citations (0–4 pts)**: References to standards (ISO 17025, 21 CFR 820, ANSI Z540.3, ASME B40.100, etc.). Detects via regex pattern matching against known standard formats.
-- **Numerical Data Points (0–4 pts)**: Tolerances, percentages, intervals with units (±0.1%, 12 months, ±1°C, 4:1 TUR, etc.).
-- **Named Specifics (0–4 pts)**: Clause numbers (Clause 6.4, Section 820.72(a)), regulation sections, specific equipment models.
+### Fact Density Scoring
+
+The Fact Density category (19 pts) rewards articles grounded in real technical data:
+
+- **Citations (0–7 pts)**: References to standards (ISO 17025, 21 CFR 820, ANSI Z540.3, ASME B40.100, etc.). Detects via regex pattern matching against known standard formats.
+- **Numerical Data Points (0–6 pts)**: Tolerances, percentages, intervals with units (±0.1%, 12 months, ±1°C, 4:1 TUR, etc.).
+- **Named Specifics (0–6 pts)**: Clause numbers (Clause 6.4, Section 820.72(a)), regulation sections, specific equipment models.
 
 This category directly incentivizes the RAG-grounded content that differentiates articles from generic AI output.
 

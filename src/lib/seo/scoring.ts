@@ -1,47 +1,59 @@
 /**
- * SEO Scoring Algorithm
+ * SEO Scoring Algorithm v2
  * Deterministic scoring — no LLM cost.
- * Ported from Realience platform. Total: 100 points.
+ * Total: 100 points across 8 categories.
+ *
+ * v2 changes (from v1):
+ *  - Keyword density replaced with keyword placement checks
+ *  - Meta description optimal range fixed to 120–155
+ *  - Image/alt text scoring added
+ *  - JSON-LD presence scoring added
+ *  - Flesch-Kincaid reading grade added
+ *  - Fact Density weight increased from 12 → 19 (calibration niche differentiator)
  */
 
 export interface SEOAnalysis {
   total: number;
   title: number;
   metaDescription: number;
-  keywords: number;
+  keywordPlacement: number;
   content: number;
   structure: number;
   readability: number;
   links: number;
   factDensity: number;
   breakdown: {
-    title: { exists: boolean; length: number; optimalLength: boolean; score: number };
-    metaDescription: { exists: boolean; length: number; optimalLength: boolean; score: number };
-    keywords: { primaryExists: boolean; density: number; distribution: boolean; score: number };
-    content: { wordCount: number; optimalWordCount: boolean; headings: number; score: number };
-    structure: { hasSlug: boolean; hasHeadings: boolean; headingHierarchy: boolean; score: number };
-    readability: { averageSentenceLength: number; paragraphLength: number; score: number };
-    links: { internalLinks: number; externalLinks: number; score: number };
-    factDensity: { citations: number; numericalDataPoints: number; namedSpecifics: number; score: number };
+    title: { exists: boolean; length: number; optimalLength: boolean; keywordInTitle: boolean; score: number; maxScore: number };
+    metaDescription: { exists: boolean; length: number; optimalLength: boolean; keywordInMeta: boolean; score: number; maxScore: number };
+    keywordPlacement: { inFirstParagraph: boolean; inH2: boolean; distribution: number; score: number; maxScore: number };
+    content: { wordCount: number; optimalWordCount: boolean; headings: number; imagesWithAlt: number; totalImages: number; score: number; maxScore: number };
+    structure: { hasSlug: boolean; headingHierarchy: boolean; jsonLdPresent: boolean; score: number; maxScore: number };
+    readability: { averageSentenceLength: number; paragraphLength: number; fleschKincaidGrade: number; score: number; maxScore: number };
+    links: { internalLinks: number; externalLinks: number; score: number; maxScore: number };
+    factDensity: { citations: number; numericalDataPoints: number; namedSpecifics: number; score: number; maxScore: number };
   };
 }
 
 export interface ArticleContent {
   title?: string;
+  meta_title?: string;
   meta_description?: string;
   content?: string;
   slug?: string;
   seo_keywords?: string[];
   primary_keyword?: string;
+  json_ld?: unknown;
 }
 
 export function calculateSEOScore(article: ArticleContent): SEOAnalysis {
+  const primaryWords = getSignificantWords(article.primary_keyword);
+
   const breakdown = {
-    title: analyzeTitle(article.title),
-    metaDescription: analyzeMetaDescription(article.meta_description),
-    keywords: analyzeKeywords(article.content || '', article.seo_keywords || [], article.primary_keyword),
+    title: analyzeTitle(article.title, article.meta_title, primaryWords),
+    metaDescription: analyzeMetaDescription(article.meta_description, primaryWords),
+    keywordPlacement: analyzeKeywordPlacement(article.content || '', primaryWords),
     content: analyzeContent(article.content || ''),
-    structure: analyzeStructure(article.content || '', article.slug),
+    structure: analyzeStructure(article.content || '', article.slug, article.json_ld),
     readability: analyzeReadability(article.content || ''),
     links: analyzeLinks(article.content || ''),
     factDensity: analyzeFactDensity(article.content || ''),
@@ -50,7 +62,7 @@ export function calculateSEOScore(article: ArticleContent): SEOAnalysis {
   const total =
     breakdown.title.score +
     breakdown.metaDescription.score +
-    breakdown.keywords.score +
+    breakdown.keywordPlacement.score +
     breakdown.content.score +
     breakdown.structure.score +
     breakdown.readability.score +
@@ -61,7 +73,7 @@ export function calculateSEOScore(article: ArticleContent): SEOAnalysis {
     total: Math.min(100, Math.max(0, total)),
     title: breakdown.title.score,
     metaDescription: breakdown.metaDescription.score,
-    keywords: breakdown.keywords.score,
+    keywordPlacement: breakdown.keywordPlacement.score,
     content: breakdown.content.score,
     structure: breakdown.structure.score,
     readability: breakdown.readability.score,
@@ -71,138 +83,206 @@ export function calculateSEOScore(article: ArticleContent): SEOAnalysis {
   };
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────
+
+function stripHTML(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Extract words ≥4 chars from a keyword phrase for fuzzy matching. */
+function getSignificantWords(keyword?: string): string[] {
+  if (!keyword) return [];
+  return keyword
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length >= 4);
+}
+
+/** Check if significant keyword words appear in a text block (case-insensitive). */
+function textContainsKeyword(text: string, significantWords: string[]): boolean {
+  if (significantWords.length === 0) return false;
+  const lower = text.toLowerCase();
+  return significantWords.some((w) => lower.includes(w));
+}
+
+/** Count syllables in a word using a vowel-group heuristic. */
+function countSyllables(word: string): number {
+  const cleaned = word.toLowerCase().replace(/[^a-z]/g, '');
+  if (cleaned.length <= 2) return 1;
+
+  const vowelGroups = cleaned.match(/[aeiouy]+/g);
+  if (!vowelGroups) return 1;
+
+  let count = vowelGroups.length;
+
+  // Subtract for silent trailing e
+  if (cleaned.endsWith('e') && count > 1) {
+    count--;
+  }
+  // Common suffixes that don't add syllables
+  if (cleaned.endsWith('le') && cleaned.length > 2 && !/[aeiouy]/.test(cleaned[cleaned.length - 3])) {
+    count++;
+  }
+
+  return Math.max(1, count);
+}
+
 // ─── Title (14 pts) ───────────────────────────────────────────────────
 
-function analyzeTitle(title?: string) {
+function analyzeTitle(title?: string, metaTitle?: string, primaryWords: string[] = []) {
   if (!title || title.trim().length === 0) {
-    return { exists: false, length: 0, optimalLength: false, score: 0 };
+    return { exists: false, length: 0, optimalLength: false, keywordInTitle: false, score: 0, maxScore: 14 };
   }
+
   const length = title.length;
   const optimalLength = length >= 50 && length <= 60;
-  let score = 8;
-  if (optimalLength) score += 6;
-  else if (length >= 40 && length <= 70) score += 3;
-  return { exists: true, length, optimalLength, score: Math.min(14, score) };
+  let score = 5; // exists
+
+  if (optimalLength) score += 4;
+  else if (length >= 40 && length <= 70) score += 2;
+
+  const titleToCheck = (metaTitle || title).toLowerCase();
+  const keywordInTitle = textContainsKeyword(titleToCheck, primaryWords);
+  if (keywordInTitle) score += 5;
+
+  return { exists: true, length, optimalLength, keywordInTitle, score: Math.min(14, score), maxScore: 14 };
 }
 
 // ─── Meta Description (10 pts) ───────────────────────────────────────
 
-function analyzeMetaDescription(metaDescription?: string) {
+function analyzeMetaDescription(metaDescription?: string, primaryWords: string[] = []) {
   if (!metaDescription || metaDescription.trim().length === 0) {
-    return { exists: false, length: 0, optimalLength: false, score: 0 };
+    return { exists: false, length: 0, optimalLength: false, keywordInMeta: false, score: 0, maxScore: 10 };
   }
+
   const length = metaDescription.length;
-  const optimalLength = length >= 150 && length <= 160;
-  let score = 5;
-  if (optimalLength) score += 5;
-  else if (length >= 120 && length <= 170) score += 3;
-  return { exists: true, length, optimalLength, score: Math.min(10, score) };
+  const optimalLength = length >= 120 && length <= 155;
+  let score = 3; // exists
+
+  if (optimalLength) score += 3;
+  else if (length >= 100 && length <= 170) score += 2;
+
+  const keywordInMeta = textContainsKeyword(metaDescription.toLowerCase(), primaryWords);
+  if (keywordInMeta) score += 4;
+
+  return { exists: true, length, optimalLength, keywordInMeta, score: Math.min(10, score), maxScore: 10 };
 }
 
-// ─── Keywords (15 pts, reduced from 18) ─────────────────────────────
+// ─── Keyword Placement (13 pts) ──────────────────────────────────────
 
-function analyzeKeywords(content: string, keywords: string[], primaryKeyword?: string) {
-  const textContent = stripHTML(content).toLowerCase();
-  const words = textContent.split(/\s+/).filter((w) => w.length > 0);
-  const wordCount = words.length;
+function analyzeKeywordPlacement(content: string, primaryWords: string[]) {
+  if (primaryWords.length === 0) {
+    return { inFirstParagraph: false, inH2: false, distribution: 0, score: 0, maxScore: 13 };
+  }
 
   let score = 0;
-  let primaryExists = false;
-  let density = 0;
 
-  if (primaryKeyword && keywords.length > 0) {
-    primaryExists = true;
-    score += 5;
+  // First paragraph check
+  const firstParagraphMatch = content.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+  const firstParagraph = firstParagraphMatch ? stripHTML(firstParagraphMatch[1]) : '';
+  const inFirstParagraph = textContainsKeyword(firstParagraph, primaryWords);
+  if (inFirstParagraph) score += 4;
 
-    const keywordLower = primaryKeyword.toLowerCase();
-    const exactMatches = (textContent.match(new RegExp(escapeRegex(keywordLower), 'gi')) || []).length;
-    const keywordWords = keywordLower.split(/\s+/).filter((w) => w.length > 3);
-    let wordMatchCount = 0;
-    for (const kw of keywordWords) {
-      wordMatchCount += (textContent.match(new RegExp(`\\b${escapeRegex(kw)}\\b`, 'gi')) || []).length;
-    }
+  // H2 check
+  const h2Matches = content.match(/<h2[^>]*>([\s\S]*?)<\/h2>/gi) || [];
+  const h2Texts = h2Matches.map((h) => stripHTML(h));
+  const inH2 = h2Texts.some((text) => textContainsKeyword(text, primaryWords));
+  if (inH2) score += 4;
 
-    const keywordOccurrences = exactMatches * 3 + wordMatchCount;
-    const effectiveKeywords = keywordWords.length > 0 ? keywordWords.length : 1;
-    density = wordCount > 0 ? (keywordOccurrences / effectiveKeywords / wordCount) * 100 : 0;
+  // Distribution check (beginning, middle, end thirds)
+  const textContent = stripHTML(content).toLowerCase();
+  const words = textContent.split(/\s+/).filter((w) => w.length > 0);
+  const third = Math.floor(words.length / 3);
 
-    if (density >= 0.5 && density <= 3) score += 5;
-    else if (density >= 0.2 && density <= 5) score += 3;
-    else if (density > 0) score += 1;
+  const sections = [
+    words.slice(0, third).join(' '),
+    words.slice(third, third * 2).join(' '),
+    words.slice(third * 2).join(' '),
+  ];
 
-    // Distribution check
-    const first100 = words.slice(0, 100).join(' ');
-    const middleStart = Math.floor(words.length / 2);
-    const middle100 = words.slice(middleStart, middleStart + 100).join(' ');
-    const last100 = words.slice(-100).join(' ');
+  const distribution = sections.filter((section) =>
+    primaryWords.some((w) => section.includes(w))
+  ).length;
 
-    const checkSection = (section: string) =>
-      keywordWords.some((kw) => section.includes(kw)) || section.includes(keywordLower);
+  if (distribution >= 3) score += 5;
+  else if (distribution >= 2) score += 3;
+  else if (distribution >= 1) score += 1;
 
-    const distributionCount = [
-      checkSection(first100),
-      checkSection(middle100),
-      checkSection(last100),
-    ].filter(Boolean).length;
-
-    if (distributionCount >= 2) score += 5;
-    else if (distributionCount === 1) score += 3;
-  } else if (keywords.length > 0) {
-    score += 3;
-  }
-
-  return {
-    primaryExists,
-    density: Math.round(density * 100) / 100,
-    distribution: score >= 10,
-    score: Math.min(15, score),
-  };
+  return { inFirstParagraph, inH2, distribution, score: Math.min(13, score), maxScore: 13 };
 }
 
-// ─── Content (16 pts, reduced from 23) ──────────────────────────────
+// ─── Content (15 pts) ────────────────────────────────────────────────
 
 function analyzeContent(content: string) {
   const textContent = stripHTML(content);
   const wordCount = textContent.split(/\s+/).filter((w) => w.length > 0).length;
   let score = 0;
 
-  if (wordCount >= 2000) score += 9;
-  else if (wordCount >= 1500) score += 6;
-  else if (wordCount >= 1000) score += 4;
-  else if (wordCount >= 500) score += 2;
+  // Word count: 7 pts
+  if (wordCount >= 2000) score += 7;
+  else if (wordCount >= 1500) score += 5;
+  else if (wordCount >= 1000) score += 3;
+  else if (wordCount >= 500) score += 1;
 
+  // Headings: 5 pts
   const headings = (content.match(/<h[23][^>]*>/gi) || []).length;
-  if (headings >= 5) score += 7;
-  else if (headings >= 3) score += 4;
-  else if (headings >= 1) score += 2;
+  if (headings >= 5) score += 5;
+  else if (headings >= 3) score += 3;
+  else if (headings >= 1) score += 1;
+
+  // Images with alt text: 3 pts
+  const imgTags = content.match(/<img[^>]*>/gi) || [];
+  const totalImages = imgTags.length;
+  const imagesWithAlt = imgTags.filter((tag) => /alt=["'][^"']+["']/i.test(tag)).length;
+
+  if (imagesWithAlt >= 3) score += 3;
+  else if (imagesWithAlt >= 1) score += 2;
+  else if (totalImages > 0) score += 1;
 
   return {
     wordCount,
     optimalWordCount: wordCount >= 2000,
     headings,
-    score: Math.min(16, score),
+    imagesWithAlt,
+    totalImages,
+    score: Math.min(15, score),
+    maxScore: 15,
   };
 }
 
-// ─── Structure (13 pts) ──────────────────────────────────────────────
+// ─── Structure (11 pts) ──────────────────────────────────────────────
 
-function analyzeStructure(content: string, slug?: string) {
+function analyzeStructure(content: string, slug?: string, jsonLd?: unknown) {
   let score = 0;
-  if (slug && slug.trim().length > 0) score += 5;
 
-  const hasHeadings = /<h[123][^>]*>/i.test(content);
-  if (hasHeadings) score += 4;
+  // Slug: 3 pts
+  const hasSlug = !!slug && slug.trim().length > 0;
+  if (hasSlug) score += 3;
 
+  // Heading hierarchy: 4 pts
   const h1 = (content.match(/<h1[^>]*>/gi) || []).length;
   const h2 = (content.match(/<h2[^>]*>/gi) || []).length;
   const h3 = (content.match(/<h3[^>]*>/gi) || []).length;
   const headingHierarchy = h1 <= 1 && h2 > 0 && (h3 === 0 || h2 >= h3);
   if (headingHierarchy) score += 4;
 
-  return { hasSlug: !!slug, hasHeadings, headingHierarchy, score: Math.min(13, score) };
+  // JSON-LD: 4 pts
+  const jsonLdPresent = jsonLd != null && typeof jsonLd === 'object' && Object.keys(jsonLd as Record<string, unknown>).length > 0;
+  if (jsonLdPresent) score += 4;
+
+  return { hasSlug, headingHierarchy, jsonLdPresent, score: Math.min(11, score), maxScore: 11 };
 }
 
-// ─── Readability (12 pts) ────────────────────────────────────────────
+// ─── Readability (10 pts) ────────────────────────────────────────────
 
 function analyzeReadability(content: string) {
   const textContent = stripHTML(content);
@@ -211,22 +291,43 @@ function analyzeReadability(content: string) {
   const paragraphs = content.split(/<\/p>/i).filter((p) => stripHTML(p).trim().length > 0);
 
   let score = 0;
-  const avgSentenceLength = sentences.length > 0 ? words.length / sentences.length : 0;
-  if (avgSentenceLength >= 15 && avgSentenceLength <= 20) score += 6;
-  else if (avgSentenceLength >= 10 && avgSentenceLength <= 25) score += 3;
 
+  // Avg sentence length: 4 pts
+  const avgSentenceLength = sentences.length > 0 ? words.length / sentences.length : 0;
+  if (avgSentenceLength >= 15 && avgSentenceLength <= 20) score += 4;
+  else if (avgSentenceLength >= 10 && avgSentenceLength <= 25) score += 2;
+
+  // Avg paragraph length: 3 pts
   const avgParagraphLength = paragraphs.length > 0 ? sentences.length / paragraphs.length : 0;
-  if (avgParagraphLength >= 3 && avgParagraphLength <= 5) score += 6;
-  else if (avgParagraphLength >= 2 && avgParagraphLength <= 7) score += 3;
+  if (avgParagraphLength >= 3 && avgParagraphLength <= 5) score += 3;
+  else if (avgParagraphLength >= 2 && avgParagraphLength <= 7) score += 1;
+
+  // Flesch-Kincaid grade level: 3 pts
+  let fleschKincaidGrade = 0;
+  if (words.length > 0 && sentences.length > 0) {
+    const totalSyllables = words.reduce((sum, w) => sum + countSyllables(w), 0);
+    fleschKincaidGrade =
+      0.39 * (words.length / sentences.length) +
+      11.8 * (totalSyllables / words.length) -
+      15.59;
+    fleschKincaidGrade = Math.round(fleschKincaidGrade * 10) / 10;
+  }
+
+  // Ideal for technical-professional content: grade 8–12
+  if (fleschKincaidGrade >= 8 && fleschKincaidGrade <= 12) score += 3;
+  else if (fleschKincaidGrade >= 6 && fleschKincaidGrade <= 14) score += 2;
+  else if (fleschKincaidGrade >= 4 && fleschKincaidGrade <= 16) score += 1;
 
   return {
     averageSentenceLength: Math.round(avgSentenceLength * 100) / 100,
     paragraphLength: Math.round(avgParagraphLength * 100) / 100,
-    score: Math.min(12, score),
+    fleschKincaidGrade,
+    score: Math.min(10, score),
+    maxScore: 10,
   };
 }
 
-// ─── Links (8 pts, reduced from 10) ─────────────────────────────────
+// ─── Links (8 pts) ───────────────────────────────────────────────────
 
 function analyzeLinks(content: string) {
   const allLinks = content.match(/<a[^>]*href=["'][^"']*["'][^>]*>/gi) || [];
@@ -246,10 +347,10 @@ function analyzeLinks(content: string) {
   if (externalLinks >= 1 && externalLinks <= 5) score += 2;
   else if (externalLinks > 5) score += 1;
 
-  return { internalLinks, externalLinks, score: Math.min(8, score) };
+  return { internalLinks, externalLinks, score: Math.min(8, score), maxScore: 8 };
 }
 
-// ─── Fact Density (12 pts, NEW) ──────────────────────────────────────
+// ─── Fact Density (19 pts) ──────────────────────────────────────────
 
 const STANDARD_PATTERNS = [
   /\bISO\s*\/?(?:IEC\s*)?\d{4,5}(?:[:-]\d{4})?/gi,
@@ -286,51 +387,38 @@ function analyzeFactDensity(content: string) {
   }
   const citations = citationSet.size;
 
-  // Count numerical data points (tolerances, percentages, intervals with units)
+  // Count numerical data points
   const numericalMatches = textContent.match(NUMERICAL_PATTERN) || [];
   const numericalDataPoints = new Set(numericalMatches.map((m) => m.trim().toLowerCase())).size;
 
-  // Count named specifics (clause numbers, specific regulation sections)
+  // Count named specifics (clause numbers, regulation sections)
   const clauseMatches = textContent.match(CLAUSE_PATTERN) || [];
   const namedSpecifics = new Set(clauseMatches.map((m) => m.trim().toLowerCase())).size;
 
-  // Scoring
   let score = 0;
 
-  // Citations: 0-4 pts
-  if (citations >= 5) score += 4;
-  else if (citations >= 3) score += 3;
+  // Citations: 0–7 pts
+  if (citations >= 7) score += 7;
+  else if (citations >= 5) score += 5;
+  else if (citations >= 3) score += 4;
   else if (citations >= 1) score += 2;
 
-  // Numerical data points: 0-4 pts
-  if (numericalDataPoints >= 5) score += 4;
+  // Numerical data points: 0–6 pts
+  if (numericalDataPoints >= 8) score += 6;
+  else if (numericalDataPoints >= 5) score += 5;
   else if (numericalDataPoints >= 3) score += 3;
-  else if (numericalDataPoints >= 1) score += 2;
+  else if (numericalDataPoints >= 1) score += 1;
 
-  // Named specifics: 0-4 pts
-  if (namedSpecifics >= 4) score += 4;
-  else if (namedSpecifics >= 2) score += 3;
+  // Named specifics: 0–6 pts
+  if (namedSpecifics >= 5) score += 6;
+  else if (namedSpecifics >= 3) score += 4;
   else if (namedSpecifics >= 1) score += 2;
 
   return {
     citations,
     numericalDataPoints,
     namedSpecifics,
-    score: Math.min(12, score),
+    score: Math.min(19, score),
+    maxScore: 19,
   };
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────────
-
-function stripHTML(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&(amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

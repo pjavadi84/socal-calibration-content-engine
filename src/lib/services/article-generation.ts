@@ -171,18 +171,8 @@ export async function generateArticle(
 
     const keywords = keywordResult.content;
 
-    // 5. Calculate SEO score (deterministic, no LLM)
+    // 5. Generate JSON-LD (moved before SEO scoring so scorer can check presence)
     const slug = generated.slug_candidates[0] || '';
-    const seoAnalysis = calculateSEOScore({
-      title: generated.title,
-      meta_description: generated.meta_description,
-      content: generated.body_html,
-      slug,
-      seo_keywords: keywords.seo_keywords,
-      primary_keyword: keywords.primary_keyword,
-    });
-
-    // 6. Generate JSON-LD
     const jsonLd = generateArticleJsonLd({
       article: {
         title: generated.title,
@@ -195,6 +185,18 @@ export async function generateArticle(
       location,
       category: category.name,
       slug,
+    });
+
+    // 6. Calculate SEO score (deterministic, no LLM)
+    const seoAnalysis = calculateSEOScore({
+      title: generated.title,
+      meta_title: generated.meta_title,
+      meta_description: generated.meta_description,
+      content: generated.body_html,
+      slug,
+      seo_keywords: keywords.seo_keywords,
+      primary_keyword: keywords.primary_keyword,
+      json_ld: jsonLd,
     });
 
     // 7. Update article with all generated content
