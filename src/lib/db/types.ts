@@ -306,6 +306,33 @@ export type Database = {
         }
         Relationships: []
       }
+      settings: {
+        Row: {
+          id: string
+          wp_site_url: string | null
+          wp_username: string | null
+          wp_app_password: string | null
+          auto_push_on_approve: boolean
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          wp_site_url?: string | null
+          wp_username?: string | null
+          wp_app_password?: string | null
+          auto_push_on_approve?: boolean
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          wp_site_url?: string | null
+          wp_username?: string | null
+          wp_app_password?: string | null
+          auto_push_on_approve?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       social_posts: {
         Row: {
           article_id: string
@@ -482,6 +509,16 @@ export type CompositeTypes<
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
+
+// ─── Settings type ───────────────────────────────────────────────────
+export interface Settings {
+  id: string;
+  wp_site_url: string | null;
+  wp_username: string | null;
+  wp_app_password: string | null;
+  auto_push_on_approve: boolean;
+  updated_at: string;
+}
 
 export const Constants = {
   public: {

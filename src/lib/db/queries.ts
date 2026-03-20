@@ -177,6 +177,31 @@ export async function getSocialPostsByArticle(articleId: string) {
   return data;
 }
 
+// ─── Settings Queries ─────────────────────────────────────────────────
+
+export async function getSettings() {
+  const db = createServiceClient();
+  const { data, error } = await db
+    .from('settings')
+    .select('*')
+    .single();
+  if (error) throw new Error(`Failed to fetch settings: ${error.message}`);
+  return data;
+}
+
+export async function updateSettings(updates: Record<string, unknown>) {
+  const db = createServiceClient();
+  const settings = await getSettings();
+  const { data, error } = await db
+    .from('settings')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', settings.id)
+    .select()
+    .single();
+  if (error) throw new Error(`Failed to update settings: ${error.message}`);
+  return data;
+}
+
 // ─── Stats Queries ────────────────────────────────────────────────────
 
 export async function getArticleStats() {

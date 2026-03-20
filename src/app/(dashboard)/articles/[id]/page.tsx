@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Check, X, RefreshCw, Copy, ArrowLeft } from 'lucide-react';
+import { Check, X, RefreshCw, Copy, ArrowLeft, Upload, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -41,6 +41,8 @@ type Article = Record<string, unknown> & {
   json_ld: unknown;
   knowledge_sources: string[] | null;
   practitioner_notes_used: boolean | null;
+  wp_post_id: number | null;
+  wp_post_url: string | null;
   content_pillars: { id: string; name: string } | null;
   categories: { id: string; name: string; slug: string } | null;
   locations: { id: string; city: string; state: string; display_name: string } | null;
@@ -104,7 +106,13 @@ export default function ArticleDetailPage({
       if (!res.ok) throw new Error('Action failed');
       const data = await res.json();
       setArticle(data.article);
-      toast.success(`Article ${action === 'approve' ? 'approved' : 'rejected'}`);
+      if (action === 'push_to_wordpress') {
+        toast.success('Pushed to WordPress');
+      } else if (data.wordpress) {
+        toast.success(`Article approved & pushed to WordPress`);
+      } else {
+        toast.success(`Article ${action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : action}`);
+      }
     } catch {
       toast.error('Action failed');
     } finally {
@@ -164,6 +172,11 @@ export default function ArticleDetailPage({
             >
               {article.status.replace('_', ' ')}
             </Badge>
+            {article.wp_post_id && (
+              <Badge className="bg-purple-100 text-purple-800" variant="secondary">
+                WP Synced
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -190,9 +203,32 @@ export default function ArticleDetailPage({
               </Button>
             </>
           )}
-          <Button variant="outline" size="sm" disabled title="Coming in Phase 3">
-            Push to WordPress
-          </Button>
+          {article.wp_post_url ? (
+            <a
+              href={article.wp_post_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-7 items-center gap-1 rounded-[min(var(--radius-md),12px)] border border-border bg-background px-2.5 text-[0.8rem] font-medium hover:bg-muted hover:text-foreground"
+            >
+              <ExternalLink className="size-3.5" />
+              View on WordPress
+            </a>
+          ) : article.status === 'approved' ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleAction('push_to_wordpress')}
+              disabled={!!actionLoading}
+            >
+              <Upload className="mr-1 size-4" />
+              {actionLoading === 'push_to_wordpress' ? 'Pushing...' : 'Push to WordPress'}
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" disabled title="Approve article first">
+              <Upload className="mr-1 size-4" />
+              Push to WordPress
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"

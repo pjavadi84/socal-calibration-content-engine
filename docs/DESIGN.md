@@ -65,7 +65,7 @@ Run the content engine **in parallel** with the existing vendor for 2–3 months
 
 - **WordPress** with **Astra theme** and **Elementor** page builder
 - **No blog section** currently exists
-- **No SEO plugin** detected (no Yoast, RankMath, or AIOSEO)
+- **Yoast SEO** is active
 - Google Analytics 4 and Google Ads tracking are active
 - Basic schema.org markup (WebPage, Organization, BreadcrumbList)
 
@@ -108,7 +108,7 @@ Run the content engine **in parallel** with the existing vendor for 2–3 months
 ### Gaps Identified
 
 1. **No blog infrastructure** — WordPress has native blog support, just needs activation
-2. **No SEO plugin** — need RankMath or Yoast for on-page optimization
+2. ~~**No SEO plugin**~~ — **Yoast SEO already installed**
 3. **Thin location coverage** — only 2 location pages for all of SoCal
 4. **No FAQ schema** — existing FAQ page doesn't use structured data
 5. **Missing internal linking** — service pages don't cross-link effectively
@@ -588,7 +588,7 @@ WordPress has a built-in REST API. With an Application Password (available in WP
 
 1. **Create posts as drafts** — appear in WordPress dashboard for review
 2. **Set categories and tags** — map content matrix categories to WP categories
-3. **Set meta fields** — if an SEO plugin (RankMath/Yoast) is installed, set meta title/description via their API
+3. **Set meta fields** — set meta title/description via Yoast SEO REST API fields
 4. **Set featured images** — upload and attach (future: AI-generated images)
 
 ### Authentication Setup
@@ -622,11 +622,11 @@ Content Engine                          WordPress
 
 Before the engine can push content, Parham needs to:
 
-1. **Install an SEO plugin** — RankMath (free, recommended) or Yoast
+1. **Yoast SEO** (already installed)
 2. **Enable the blog** — WordPress has built-in blog, just needs a "Blog" page created and set in Settings → Reading
 3. **Create WP categories** matching the content matrix categories
 4. **Generate an Application Password** for the content engine
-5. **Install a JSON-LD/Schema plugin** (or use RankMath's built-in schema) for FAQ structured data
+5. **Install a JSON-LD/Schema plugin** (or use Yoast's built-in schema) for FAQ structured data
 
 ---
 
@@ -767,14 +767,14 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 **Goal:** Push approved articles to WordPress as drafts.
 
 - [x] WordPress REST API client (authentication, post creation, category mapping)
-- [ ] Settings page for WordPress credentials (site URL, username, app password)
-- [ ] "Push to WordPress" button on article detail page
-- [ ] Auto-push on approval (optional setting)
+- [x] Settings page for WordPress credentials (site URL, username, app password)
+- [x] "Push to WordPress" button on article detail page
+- [x] Auto-push on approval (optional setting)
 - [x] WP category sync (create/map content engine categories to WP categories)
-- [x] Meta field integration (RankMath or Yoast SEO fields)
-- [ ] Status tracking (synced/not synced with WordPress)
+- [x] Meta field integration (Yoast SEO fields)
+- [x] Status tracking (synced/not synced with WordPress)
 
-**Prerequisite:** Parham installs RankMath on his WordPress site and creates an Application Password.
+**Prerequisite:** Yoast SEO is already installed on the WordPress site. Parham creates an Application Password.
 
 **Deliverable:** Approved articles appear as drafts in WordPress with SEO metadata. Parham reviews and publishes from WP.
 
@@ -900,7 +900,7 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 | Google Cloud account | $0 | $300 free credits for new accounts |
 | Supabase account | $0 | Free tier setup |
 | Vercel account | $0 | Free tier |
-| RankMath plugin (WP) | $0 | Free version is sufficient |
+| Yoast SEO plugin (WP) | $0 | Already installed |
 | Development time | Your time | ~4–6 weeks for phases 1–4 |
 
 ---
@@ -969,7 +969,7 @@ Month 4+: ENGINE OWNS ON-SITE CONTENT
 
 Before the content engine can push content, Parham must:
 
-- [ ] Install **RankMath** SEO plugin (free) on WordPress
+- [x] **Yoast SEO** plugin already active on WordPress
 - [ ] Create a **"Blog"** page and set it as the Posts page in Settings → Reading
 - [ ] Create **WordPress categories** matching the content matrix
 - [ ] Generate an **Application Password** (Users → Profile → Application Passwords)

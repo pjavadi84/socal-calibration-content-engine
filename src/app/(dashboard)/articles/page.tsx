@@ -29,6 +29,7 @@ type Article = {
   seo_score: number | null;
   word_count: number | null;
   primary_keyword: string | null;
+  wp_post_id: number | null;
   created_at: string;
   content_pillars: { id: string; name: string } | null;
   categories: { id: string; name: string } | null;
@@ -109,6 +110,7 @@ export default function ArticlesPage() {
               <TableHead>Location</TableHead>
               <TableHead className="text-right">SEO Score</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>WP</TableHead>
               <TableHead>Created</TableHead>
             </TableRow>
           </TableHeader>
@@ -116,7 +118,7 @@ export default function ArticlesPage() {
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 7 }).map((_, j) => (
+                  {Array.from({ length: 8 }).map((_, j) => (
                     <TableCell key={j}>
                       <Skeleton className="h-4 w-full" />
                     </TableCell>
@@ -125,7 +127,7 @@ export default function ArticlesPage() {
               ))
             ) : articles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                   No articles found
                 </TableCell>
               </TableRow>
@@ -159,6 +161,13 @@ export default function ArticlesPage() {
                     >
                       {article.status.replace('_', ' ')}
                     </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {article.wp_post_id ? (
+                      <Badge className="bg-purple-100 text-purple-800" variant="secondary">
+                        Synced
+                      </Badge>
+                    ) : null}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {new Date(article.created_at).toLocaleDateString()}
