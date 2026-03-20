@@ -4,8 +4,9 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
+/** `gemini-2.0-flash` is unavailable for new API keys — use 2.5+ */
 const MODELS = {
-  flash: 'gemini-2.0-flash',
+  flash: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash',
 } as const;
 
 export interface LLMResponse<T = string> {
@@ -65,6 +66,7 @@ export async function generateJSON<T>(
   options: GenerateTextOptions = {}
 ): Promise<LLMResponse<T>> {
   const jsonSchema = zodToJsonSchema(schema, 'response');
+  const responseSchema = stripUnsupportedKeys(jsonSchema.definitions?.response as Record<string, unknown>);
 
   const model = genAI.getGenerativeModel({
     model: MODELS.flash,
@@ -74,7 +76,7 @@ export async function generateJSON<T>(
       maxOutputTokens: options.maxTokens ?? 8192,
       responseMimeType: 'application/json',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      responseSchema: jsonSchema.definitions?.response as any,
+      responseSchema: responseSchema as any,
     },
   });
 
@@ -98,6 +100,27 @@ export async function generateJSON<T>(
         }
       : undefined,
   };
+}
+
+/**
+ * Recursively strip keys not supported by Gemini's response schema
+ * (e.g. additionalProperties, $schema, default)
+ */
+function stripUnsupportedKeys(obj: unknown): unknown {
+  if (Array.isArray(obj)) {
+    return obj.map(stripUnsupportedKeys);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      if (key === 'additionalProperties' || key === '$schema' || key === 'default') {
+        continue;
+      }
+      result[key] = stripUnsupportedKeys(value);
+    }
+    return result;
+  }
+  return obj;
 }
 
 /**

@@ -177,6 +177,77 @@ export async function getSocialPostsByArticle(articleId: string) {
   return data;
 }
 
+// ─── Stats Queries ────────────────────────────────────────────────────
+
+export async function getArticleStats() {
+  const db = createServiceClient();
+
+  // Total articles (excluding failed)
+  const { count: totalArticles } = await db
+    .from('articles')
+    .select('*', { count: 'exact', head: true })
+    .neq('status', 'failed');
+
+  // Articles this month
+  const startOfMonth = new Date();
+  startOfMonth.setDate(1);
+  startOfMonth.setHours(0, 0, 0, 0);
+  const { count: articlesThisMonth } = await db
+    .from('articles')
+    .select('*', { count: 'exact', head: true })
+    .neq('status', 'failed')
+    .gte('created_at', startOfMonth.toISOString());
+
+  // Pending review count
+  const { count: pendingReview } = await db
+    .from('articles')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'pending_review');
+
+  // Average SEO score and fact density
+  const { data: scoreData } = await db
+    .from('articles')
+    .select('seo_score, fact_density_score')
+    .neq('status', 'failed')
+    .not('seo_score', 'is', null);
+
+  let avgSeoScore = 0;
+  let avgFactDensity = 0;
+  if (scoreData && scoreData.length > 0) {
+    avgSeoScore = Math.round(
+      scoreData.reduce((sum, a) => sum + (a.seo_score || 0), 0) / scoreData.length
+    );
+    const withFactDensity = scoreData.filter((a) => a.fact_density_score != null);
+    if (withFactDensity.length > 0) {
+      avgFactDensity = Math.round(
+        withFactDensity.reduce((sum, a) => sum + (a.fact_density_score || 0), 0) /
+          withFactDensity.length
+      );
+    }
+  }
+
+  // Status counts
+  const { data: statusData } = await db
+    .from('articles')
+    .select('status');
+
+  const statusCounts: Record<string, number> = {};
+  if (statusData) {
+    for (const row of statusData) {
+      statusCounts[row.status] = (statusCounts[row.status] || 0) + 1;
+    }
+  }
+
+  return {
+    totalArticles: totalArticles || 0,
+    articlesThisMonth: articlesThisMonth || 0,
+    pendingReview: pendingReview || 0,
+    avgSeoScore,
+    avgFactDensity,
+    statusCounts,
+  };
+}
+
 // ─── Batch Queries ────────────────────────────────────────────────────
 
 export async function createBatch(batch: Record<string, unknown>) {
