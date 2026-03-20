@@ -740,14 +740,14 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 
 **Goal:** Web UI for managing content generation and reviewing articles.
 
-- [ ] Authentication with Supabase Auth (simple email/password)
-- [ ] Dashboard home page (stats: articles generated, avg SEO score, pending review, fact density avg)
-- [ ] Content matrix management (view/edit pillars, categories, locations)
-- [ ] Single article generation page (select pillar + category + location → generate)
-- [ ] Batch generation page (select multiple combinations → generate in bulk)
-- [ ] Article list page (filter by status, pillar, category, location, SEO score)
-- [ ] Article detail page (view content, SEO breakdown, fact density, knowledge sources, edit, approve/reject)
-- [ ] Knowledge freshness dashboard (view stale KB files)
+- [x] Authentication with Supabase Auth (simple email/password)
+- [x] Dashboard home page (stats: articles generated, avg SEO score, pending review, fact density avg)
+- [x] Content matrix management (view/edit pillars, categories, locations)
+- [x] Single article generation page (select pillar + category + location → generate)
+- [x] Batch generation page (select multiple combinations → generate in bulk)
+- [x] Article list page (filter by status, pillar, category, location, SEO score)
+- [x] Article detail page (view content, SEO breakdown, fact density, knowledge sources, edit, approve/reject)
+- [x] Knowledge freshness dashboard (view stale KB files)
 - [x] Set up Inngest for background job processing
 - [x] Batch generation with progress tracking
 
