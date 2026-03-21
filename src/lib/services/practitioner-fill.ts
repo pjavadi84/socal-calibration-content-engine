@@ -54,14 +54,15 @@ THE PLACEHOLDER ASKS FOR:
 ${suggestion}
 
 RULES:
-- Write 2-4 sentences maximum
+- Write 2-4 complete sentences. Every sentence MUST end with a period.
 - Use first person naturally ("In our experience...", "We've seen...", "One thing I always tell clients...")
 - Be specific but don't fabricate verifiable details like exact company names or dates
 - You CAN use realistic ranges, common scenarios, and typical outcomes you'd see in the field
 - Match the tone of the surrounding article text
 - Do NOT include any HTML tags — return plain text only
 - Do NOT start with "As a calibration engineer" or any similar self-introduction
-- Sound like a real person sharing a practical insight, not a textbook`;
+- Sound like a real person sharing a practical insight, not a textbook
+- CRITICAL: Finish your thought completely. Do not end mid-sentence.`;
 }
 
 /**

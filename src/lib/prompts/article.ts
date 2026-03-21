@@ -158,13 +158,34 @@ ${ctx.styleDirective ? `${ctx.styleDirective}\n` : ''}${ctx.articleFormat ? `${c
 ARTICLE REQUIREMENTS:
 - Target length: ${lengthConfig.wordCount} words
 - Include ${lengthConfig.h2Count} H2 sections with H3 subsections where appropriate
-- Include ${lengthConfig.links} external links to authoritative sources (NIST, ISO, FDA, industry organizations)
+- Include ${lengthConfig.links} external links to authoritative sources (NIST, ISO, FDA, industry organizations) — these are REQUIRED, do not skip them
 - Write in a professional but approachable tone
 - Include specific technical details that demonstrate expertise
 - Naturally incorporate calibration terminology and industry jargon
 - Balance technical depth with business relevance — every major section should connect to a practical business outcome
 - End with a clear call-to-action mentioning SoCal Calibration's services
 - Include 3-5 FAQ items that answer common questions about the topic
+
+YOAST SEO OPTIMIZATION (CRITICAL — follow all of these):
+1. KEYPHRASE PLACEMENT:
+   - The primary keyword/keyphrase must appear in the FIRST PARAGRAPH (introduction) of the article
+   - The primary keyword must appear in at least ONE H2 subheading
+   - The primary keyword must appear naturally throughout the body (aim for 0.5-1.5% density — roughly once per 100-200 words)
+   - The slug_candidates must contain the primary keyword words
+2. META TITLE:
+   - The meta_title MUST start with or contain the primary keyword near the beginning
+   - Keep meta_title between 50-58 characters (NEVER exceed 60 characters)
+3. META DESCRIPTION:
+   - meta_description MUST contain the primary keyword
+   - Keep meta_description between 120-150 characters
+4. READABILITY (Yoast Flesch/sentence analysis):
+   - Keep at least 75% of sentences UNDER 20 words — mix short punchy sentences with longer ones
+   - Use ACTIVE voice for at least 90% of sentences — avoid passive constructions ("was calibrated" → "we calibrated", "is required" → "you need")
+   - Use TRANSITION WORDS in at least 30% of sentences — examples: "however", "therefore", "in addition", "as a result", "for example", "moreover", "consequently", "furthermore", "in fact", "on the other hand", "specifically", "most importantly"
+   - Keep paragraphs to 3-5 sentences maximum
+5. OUTBOUND LINKS:
+   - Include at least 3 external links to authoritative sources using <a href="..." target="_blank" rel="noopener">
+   - Links must point to real .gov, .org, or recognized industry websites
 
 ABOUT SOCAL CALIBRATION:
 - Full name: SoCal Calibration
@@ -209,7 +230,7 @@ ${locationHint}
 CRITICAL RULES:
 1. Only include keywords that ACTUALLY APPEAR in the article text
 2. Do NOT invent keywords that aren't present in the content
-3. The primary keyword should combine the service type with the location (if applicable)
+3. The primary keyword MUST be 2-4 words maximum (e.g., "medical equipment calibration", "scale calibration", "pressure gauge calibration"). Do NOT include location in the primary keyword. Keep it short and focused.
 4. SEO keywords should be 5-8 phrases that appear naturally in the text
 5. Long-tail keywords should be 3-5 longer phrases from the content
 

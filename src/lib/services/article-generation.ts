@@ -13,6 +13,8 @@ import { retrieveKnowledge } from '@/lib/knowledge';
 import { retrieveAuthoritativeContext } from '@/lib/authoritative';
 import { injectClusterLinks } from '@/lib/services/cluster-linking';
 import { fillPractitionerNotes } from '@/lib/services/practitioner-fill';
+import { generateArticleImages } from '@/lib/services/article-images';
+import { refineForYoast } from '@/lib/services/yoast-refinement';
 import * as db from '@/lib/db/queries';
 
 // ─── Content Velocity Controls ───────────────────────────────────────
@@ -230,8 +232,22 @@ export async function generateArticle(
 
     const keywords = keywordResult.content;
 
-    // 5. Generate JSON-LD (moved before SEO scoring so scorer can check presence)
+    // 4.5. Yoast SEO refinement — ensure primary keyword is in meta title, meta description, first paragraph, and slug
     const slug = generated.slug_candidates[0] || '';
+    const yoastRefined = refineForYoast({
+      title: generated.title,
+      metaTitle: generated.meta_title,
+      metaDescription: generated.meta_description,
+      bodyHtml: filledBodyHtml,
+      primaryKeyword: keywords.primary_keyword,
+      slug,
+    });
+    filledBodyHtml = yoastRefined.bodyHtml;
+    const refinedMetaTitle = yoastRefined.metaTitle;
+    const refinedMetaDescription = yoastRefined.metaDescription;
+    const refinedSlug = yoastRefined.slug;
+
+    // 5. Generate JSON-LD (moved before SEO scoring so scorer can check presence)
 
     // Build author info from settings (fetched earlier at line ~151)
     let authorSettings: { name: string; title?: string; bio?: string; imageUrl?: string; profileUrl?: string } | undefined;
@@ -253,7 +269,7 @@ export async function generateArticle(
     const jsonLd = generateArticleJsonLd({
       article: {
         title: generated.title,
-        meta_description: generated.meta_description,
+        meta_description: refinedMetaDescription,
         body_html: filledBodyHtml,
         word_count: generated.word_count,
         seo_keywords: keywords.seo_keywords,
@@ -261,7 +277,7 @@ export async function generateArticle(
       },
       location,
       category: category.name,
-      slug,
+      slug: refinedSlug,
       author: authorSettings,
     });
 
@@ -279,13 +295,28 @@ export async function generateArticle(
       console.error('Cluster linking failed, continuing without:', err);
     }
 
+    // 5.7. Generate and inject article images using Gemini
+    try {
+      const imageResult = await generateArticleImages(
+        enrichedBodyHtml,
+        article.id,
+        generated.title,
+        category.name,
+        3,
+        keywords.primary_keyword
+      );
+      enrichedBodyHtml = imageResult.enrichedHtml;
+    } catch (err) {
+      console.error('Article image generation failed, continuing without:', err);
+    }
+
     // 6. Calculate SEO score (deterministic, no LLM)
     const seoAnalysis = calculateSEOScore({
       title: generated.title,
-      meta_title: generated.meta_title,
-      meta_description: generated.meta_description,
+      meta_title: refinedMetaTitle,
+      meta_description: refinedMetaDescription,
       content: enrichedBodyHtml,
-      slug,
+      slug: refinedSlug,
       seo_keywords: keywords.seo_keywords,
       primary_keyword: keywords.primary_keyword,
       json_ld: jsonLd,
@@ -297,11 +328,11 @@ export async function generateArticle(
       status: 'pending_review',
       title: generated.title,
       body_html: enrichedBodyHtml,
-      meta_title: generated.meta_title,
-      meta_description: generated.meta_description,
+      meta_title: refinedMetaTitle,
+      meta_description: refinedMetaDescription,
       h2_structure: generated.h2_structure,
       slug_candidates: generated.slug_candidates,
-      slug: slug,
+      slug: refinedSlug,
       faq: generated.faq,
       word_count: generated.word_count,
       primary_keyword: keywords.primary_keyword,

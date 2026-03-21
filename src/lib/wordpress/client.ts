@@ -86,6 +86,37 @@ async function wpFetch<T>(
 }
 
 /**
+ * Set Yoast SEO meta fields on a post.
+ * Requires the "Yoast REST API Bridge" plugin (wordpress/yoast-rest-api-bridge.php)
+ * to be installed on the WordPress site, which registers Yoast meta keys for REST API access.
+ */
+async function setYoastMeta(
+  postId: number,
+  fields: {
+    focuskw?: string;
+    metadesc?: string;
+    title?: string;
+  },
+  creds?: WPCredentials
+): Promise<void> {
+  const meta: Record<string, string> = {};
+  if (fields.focuskw) meta._yoast_wpseo_focuskw = fields.focuskw;
+  if (fields.metadesc) meta._yoast_wpseo_metadesc = fields.metadesc;
+  if (fields.title) meta._yoast_wpseo_title = fields.title;
+
+  if (Object.keys(meta).length === 0) return;
+
+  try {
+    await wpFetch(`/posts/${postId}`, {
+      method: 'POST',
+      body: JSON.stringify({ meta }),
+    }, creds);
+  } catch (err) {
+    console.error(`Failed to set Yoast meta on post ${postId}:`, err);
+  }
+}
+
+/**
  * Create a WordPress post as draft
  */
 export async function createDraftPost(
@@ -196,6 +227,7 @@ export async function pushArticleToWordPress(
     category_name: string;
     json_ld?: string;
     author_byline?: string;
+    primary_keyword?: string;
   },
   creds?: WPCredentials
 ): Promise<{ wpPostId: number; wpPostUrl: string }> {
@@ -216,11 +248,13 @@ export async function pushArticleToWordPress(
     status: 'draft',
     slug: article.slug,
     categories: [categoryId],
-    // Yoast SEO meta fields
-    meta: {
-      _yoast_wpseo_title: article.meta_title,
-      _yoast_wpseo_metadesc: article.meta_description,
-    },
+  }, creds);
+
+  // Set Yoast SEO fields via form-encoded POST (JSON format is silently dropped by WP)
+  await setYoastMeta(post.id, {
+    focuskw: article.primary_keyword,
+    metadesc: article.meta_description,
+    title: article.meta_title,
   }, creds);
 
   return {

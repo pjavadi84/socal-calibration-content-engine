@@ -20,6 +20,7 @@
     "@radix-ui/react-switch": "^1.2.6",
     "@supabase/ssr": "^0.6.0",
     "@supabase/supabase-js": "^2.49.0",
+    "@tailwindcss/typography": "^0.5.19",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "inngest": "^3.31.0",

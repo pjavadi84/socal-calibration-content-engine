@@ -91,6 +91,7 @@ export async function PATCH(
             category_name: fullArticle.categories?.name || 'Uncategorized',
             json_ld: jsonLdScript,
             author_byline: authorByline,
+            primary_keyword: fullArticle.primary_keyword || undefined,
           }, creds);
 
           await updateArticle(id, {
@@ -150,6 +151,7 @@ export async function PATCH(
         category_name: article.categories?.name || 'Uncategorized',
         json_ld: jsonLdScript,
         author_byline: authorByline,
+        primary_keyword: article.primary_keyword || undefined,
       }, creds);
 
       const updated = await updateArticle(id, {

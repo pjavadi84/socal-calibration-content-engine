@@ -7,6 +7,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 /** `gemini-2.0-flash` is unavailable for new API keys — use 2.5+ */
 const MODELS = {
   flash: process.env.GEMINI_MODEL ?? 'gemini-2.5-flash',
+  imageGen: process.env.GEMINI_IMAGE_MODEL ?? 'gemini-2.5-flash-image',
 } as const;
 
 export interface LLMResponse<T = string> {
@@ -121,6 +122,53 @@ function stripUnsupportedKeys(obj: unknown): unknown {
     return result;
   }
   return obj;
+}
+
+/**
+ * Generate an image with Gemini
+ */
+export async function generateImage(
+  prompt: string,
+  options: { aspectRatio?: string } = {}
+): Promise<{ imageData: Buffer; mimeType: string } | null> {
+  const model = genAI.getGenerativeModel({
+    model: MODELS.imageGen,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    generationConfig: {
+      responseModalities: ['TEXT', 'IMAGE'],
+    } as any,
+  });
+
+  const fullPrompt = `Generate a professional, photorealistic image for a technical blog article. ${prompt}
+
+Style requirements:
+- Clean, professional look suitable for a B2B calibration company blog
+- No text, watermarks, logos, or brand names anywhere in the image
+- All equipment must be unbranded — no visible manufacturer names, model numbers, or brand logos on any instruments, tools, or devices
+- High quality, well-lit, sharp focus
+- Relevant to precision measurement, calibration, or industrial quality`;
+
+  const result: GenerateContentResult = await model.generateContent(fullPrompt);
+  const response = result.response;
+  const candidates = response.candidates;
+
+  if (!candidates || candidates.length === 0) return null;
+
+  const parts = candidates[0].content?.parts;
+  if (!parts) return null;
+
+  for (const part of parts) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const inlineData = (part as any).inlineData;
+    if (inlineData?.data && inlineData?.mimeType) {
+      return {
+        imageData: Buffer.from(inlineData.data, 'base64'),
+        mimeType: inlineData.mimeType as string,
+      };
+    }
+  }
+
+  return null;
 }
 
 /**

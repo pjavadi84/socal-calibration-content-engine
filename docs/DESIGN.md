@@ -841,9 +841,9 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 **Authoritative Source API Integrations (RAG Tier 2):**
 
 *Regulatory & Standards APIs:*
-- [ ] Integrate openFDA API (device recalls, 483 observations, warning letters, MAUDE device events)
-- [ ] Integrate OSHA Enforcement Data API (citations, inspections by SIC code and region)
-- [ ] Integrate Federal Register API (new/proposed rules from FDA, OSHA, NIST)
+- [x] Integrate openFDA API (device recalls, 483 observations, warning letters, MAUDE device events)
+- [x] Integrate OSHA Enforcement Data API (citations, inspections by SIC code and region)
+- [x] Integrate Federal Register API (new/proposed rules from FDA, OSHA, NIST)
 - [ ] Integrate NIST Publications RSS/API (new special publications, handbook updates)
 - [ ] Integrate CPSC Recalls API for equipment-specific recall data
 - [ ] Monitor ISO.org for standard revision announcements (ISO 17025, 13485, 6789)
@@ -912,11 +912,42 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 - [x] Cluster link bonus in SEO scoring (up to 2 pts in links category)
 - [x] Integrated into generation pipeline after JSON-LD, before SEO scoring
 
+**Yoast SEO Optimization:**
+- [x] Yoast REST API Bridge WordPress plugin (registers `_yoast_wpseo_*` meta fields for REST API write access)
+- [x] Set Yoast focus keyphrase, meta description, and SEO title on WordPress push
+- [x] Post-processing Yoast refinement step after keyword extraction (ensures keyword in meta title, meta description, first paragraph, subheadings, slug)
+- [x] Primary keyword limited to 2-4 words (Yoast recommends max 4 content words)
+- [x] Meta title refined to start with keyphrase, capped at 55 characters
+- [x] Meta description refined to include keyphrase, capped at 150 characters
+- [x] First paragraph injection if keyphrase is missing
+- [x] H2 subheading injection if keyphrase is missing
+- [x] Article prompt updated with Yoast-specific readability rules (sentence length, active voice, transition words)
+- [x] Outbound links enforced as required (minimum 3 external links)
+
+**AI Image Generation:**
+- [x] Gemini image generation via `gemini-2.5-flash-image` model with `responseModalities: ['TEXT', 'IMAGE']`
+- [x] Article image service: determines placement after evenly-spaced H2 sections (up to 3 images)
+- [x] Images uploaded to Supabase Storage (`assets/articles/{id}/`)
+- [x] `<figure>` with `<img>` and `<figcaption>` injected into article HTML
+- [x] Image alt attributes include primary keyword for Yoast SEO
+- [x] Image prompt enforces no brand names, logos, or text on equipment
+- [x] Integrated into generation pipeline after cluster linking, before SEO scoring
+
+**Content Readability:**
+- [x] Installed `@tailwindcss/typography` for proper prose rendering
+- [x] Upgraded article content display from `prose-sm` to `prose` with spacing overrides
+- [x] Practitioner note auto-fill prompt fixed to enforce complete sentences
+
 **Article Management:**
 - [x] Single article delete (API + UI with confirmation)
 - [x] Bulk article delete with checkbox selection on articles list page
 
-**Deliverable:** Articles have varied structure/voice, author authority signals in JSON-LD, auto-filled practitioner observations, and cross-linking between related articles. WordPress push is blocked if quality gates fail.
+**Bug Fixes:**
+- [x] Fix: Select dropdowns showing UUIDs instead of names on generate page (Base UI SelectValue)
+- [x] Fix: "none" location value failing UUID validation on generate
+- [x] Fix: Yoast meta fields silently dropped by WordPress REST API (JSON format)
+
+**Deliverable:** Articles have varied structure/voice, author authority signals in JSON-LD, auto-filled practitioner observations, AI-generated images, cross-linking between related articles, and full Yoast SEO optimization. WordPress push sets all Yoast fields automatically.
 
 ---
 

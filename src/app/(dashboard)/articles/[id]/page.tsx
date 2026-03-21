@@ -355,7 +355,7 @@ export default function ArticleDetailPage({
             <CardContent>
               {article.body_html ? (
                 <div
-                  className="prose prose-sm max-w-none"
+                  className="prose max-w-none prose-headings:mt-8 prose-headings:mb-4 prose-p:my-4 prose-p:leading-7 prose-li:my-1 prose-img:rounded-lg prose-img:my-6"
                   dangerouslySetInnerHTML={{ __html: article.body_html }}
                 />
               ) : (
