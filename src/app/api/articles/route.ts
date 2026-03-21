@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getArticles } from '@/lib/db/queries';
+import { getArticles, deleteArticles } from '@/lib/db/queries';
 
 export async function GET(request: NextRequest) {
   try {
@@ -25,6 +25,29 @@ export async function GET(request: NextRequest) {
     console.error('Failed to fetch articles:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to fetch articles' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { ids } = body;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json(
+        { error: 'ids must be a non-empty array' },
+        { status: 400 }
+      );
+    }
+
+    await deleteArticles(ids);
+    return NextResponse.json({ success: true, deleted: ids.length });
+  } catch (error) {
+    console.error('Failed to delete articles:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to delete articles' },
       { status: 500 }
     );
   }

@@ -33,6 +33,11 @@ export async function PUT(request: NextRequest) {
     if (body.auto_push_on_approve !== undefined) updates.auto_push_on_approve = body.auto_push_on_approve;
     if (body.authoritative_apis_enabled !== undefined) updates.authoritative_apis_enabled = body.authoritative_apis_enabled;
     if (body.authoritative_apis_config !== undefined) updates.authoritative_apis_config = body.authoritative_apis_config;
+    if (body.author_name !== undefined) updates.author_name = body.author_name;
+    if (body.author_title !== undefined) updates.author_title = body.author_title;
+    if (body.author_bio !== undefined) updates.author_bio = body.author_bio;
+    if (body.author_image_url !== undefined) updates.author_image_url = body.author_image_url;
+    if (body.author_profile_url !== undefined) updates.author_profile_url = body.author_profile_url;
 
     // Only update password if it's not the masked value
     if (body.wp_app_password !== undefined && !body.wp_app_password.startsWith('••••')) {

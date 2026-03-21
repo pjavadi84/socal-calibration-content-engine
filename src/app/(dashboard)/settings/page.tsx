@@ -10,12 +10,14 @@ import {
 } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import Image from 'next/image';
 
 interface ApiConfig {
   openfda: boolean;
@@ -30,6 +32,11 @@ interface SettingsForm {
   auto_push_on_approve: boolean;
   authoritative_apis_enabled: boolean;
   authoritative_apis_config: ApiConfig;
+  author_name: string;
+  author_title: string;
+  author_bio: string;
+  author_image_url: string;
+  author_profile_url: string;
 }
 
 const DEFAULT_API_CONFIG: ApiConfig = {
@@ -46,10 +53,16 @@ export default function SettingsPage() {
     auto_push_on_approve: false,
     authoritative_apis_enabled: false,
     authoritative_apis_config: DEFAULT_API_CONFIG,
+    author_name: '',
+    author_title: '',
+    author_bio: '',
+    author_image_url: '',
+    author_profile_url: '',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'connected' | 'failed'>('idle');
   const [connectionDetail, setConnectionDetail] = useState('');
 
@@ -69,6 +82,11 @@ export default function SettingsPage() {
             ...DEFAULT_API_CONFIG,
             ...(data.authoritative_apis_config || {}),
           },
+          author_name: data.author_name || '',
+          author_title: data.author_title || '',
+          author_bio: data.author_bio || '',
+          author_image_url: data.author_image_url || '',
+          author_profile_url: data.author_profile_url || '',
         });
       } catch {
         toast.error('Failed to load settings');
@@ -99,6 +117,11 @@ export default function SettingsPage() {
           ...DEFAULT_API_CONFIG,
           ...(data.authoritative_apis_config || {}),
         },
+        author_name: data.author_name || '',
+        author_title: data.author_title || '',
+        author_bio: data.author_bio || '',
+        author_image_url: data.author_image_url || '',
+        author_profile_url: data.author_profile_url || '',
       });
       toast.success('Settings saved');
     } catch {
@@ -137,6 +160,36 @@ export default function SettingsPage() {
       toast.error('Connection test failed');
     } finally {
       setTesting(false);
+    }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'author');
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Upload failed');
+      }
+
+      const data = await res.json();
+      setForm({ ...form, author_image_url: data.url });
+      toast.success('Image uploaded');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploadingImage(false);
     }
   }
 
@@ -249,6 +302,111 @@ export default function SettingsPage() {
                 setForm({ ...form, auto_push_on_approve: checked })
               }
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>Author / E-E-A-T</CardTitle>
+          <CardDescription>
+            Configure author information for Google E-E-A-T signals in JSON-LD and article bylines.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="author-name">Author Name</Label>
+            <Input
+              id="author-name"
+              placeholder="SoCal Calibration Team"
+              value={form.author_name}
+              onChange={(e) => setForm({ ...form, author_name: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="author-title">Title / Role</Label>
+            <Input
+              id="author-title"
+              placeholder="Calibration Specialists"
+              value={form.author_title}
+              onChange={(e) => setForm({ ...form, author_title: e.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="author-bio">Bio</Label>
+            <Textarea
+              id="author-bio"
+              placeholder="Brief bio for structured data..."
+              value={form.author_bio}
+              onChange={(e) => setForm({ ...form, author_bio: e.target.value })}
+              rows={3}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Author Image</Label>
+            <div className="flex items-center gap-4">
+              {form.author_image_url ? (
+                <Image
+                  src={form.author_image_url}
+                  alt="Author"
+                  width={64}
+                  height={64}
+                  className="size-16 rounded-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                <div className="flex size-16 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground">
+                  No image
+                </div>
+              )}
+              <div className="flex flex-col gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={uploadingImage}
+                  onClick={() => document.getElementById('author-image-input')?.click()}
+                >
+                  {uploadingImage ? (
+                    <><Loader2 className="mr-1 size-4 animate-spin" />Uploading...</>
+                  ) : (
+                    <><Upload className="mr-1 size-4" />Upload Image</>
+                  )}
+                </Button>
+                <input
+                  id="author-image-input"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+                {form.author_image_url && (
+                  <button
+                    type="button"
+                    className="text-left text-xs text-muted-foreground hover:text-destructive"
+                    onClick={() => setForm({ ...form, author_image_url: '' })}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="author-profile">Author Profile URL</Label>
+            <Input
+              id="author-profile"
+              placeholder="https://socalcalibration.com/about"
+              value={form.author_profile_url}
+              onChange={(e) => setForm({ ...form, author_profile_url: e.target.value })}
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Button onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="mr-1 size-4 animate-spin" />}
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
           </div>
         </CardContent>
       </Card>

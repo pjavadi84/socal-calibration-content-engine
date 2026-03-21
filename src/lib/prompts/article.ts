@@ -56,6 +56,8 @@ interface ArticlePromptContext {
   knowledgeContext?: string | null;
   authoritativeContext?: string | null;
   businessContext?: string | null;
+  styleDirective?: string;
+  articleFormat?: string;
 }
 
 export function buildArticlePrompt(ctx: ArticlePromptContext): string {
@@ -151,7 +153,7 @@ ${internalLinksSection}
 ${knowledgeSection}
 ${authoritativeSection}
 ${businessSection}
-TITLE: ${titleInstruction}
+${ctx.styleDirective ? `${ctx.styleDirective}\n` : ''}${ctx.articleFormat ? `${ctx.articleFormat}\n` : ''}TITLE: ${titleInstruction}
 
 ARTICLE REQUIREMENTS:
 - Target length: ${lengthConfig.wordCount} words

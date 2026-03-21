@@ -79,7 +79,7 @@ export default function GeneratePage() {
         body: JSON.stringify({
           pillarId,
           categoryId,
-          locationId: locationId || undefined,
+          locationId: locationId && locationId !== 'none' ? locationId : undefined,
           targetLength,
           preGeneratedTitle: preGeneratedTitle || undefined,
         }),
@@ -129,7 +129,9 @@ export default function GeneratePage() {
               <Label>Pillar</Label>
               <Select value={pillarId} onValueChange={(v) => { setPillarId(v || ''); setCategoryId(''); }}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a pillar" />
+                  <SelectValue placeholder="Select a pillar">
+                    {pillarId ? pillars.find((p) => p.id === pillarId)?.name : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {pillars.map((p) => (
@@ -143,7 +145,9 @@ export default function GeneratePage() {
               <Label>Category</Label>
               <Select value={categoryId} onValueChange={(v) => setCategoryId(v || '')}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a category" />
+                  <SelectValue placeholder="Select a category">
+                    {categoryId ? filteredCategories.find((c) => c.id === categoryId)?.name : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {filteredCategories.map((c) => (
@@ -157,7 +161,13 @@ export default function GeneratePage() {
               <Label>Location (optional)</Label>
               <Select value={locationId} onValueChange={(v) => setLocationId(v || '')}>
                 <SelectTrigger>
-                  <SelectValue placeholder="No location targeting" />
+                  <SelectValue placeholder="No location targeting">
+                    {locationId && locationId !== 'none'
+                      ? locations.find((l) => l.id === locationId)?.display_name
+                      : locationId === 'none'
+                        ? 'No location'
+                        : undefined}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No location</SelectItem>

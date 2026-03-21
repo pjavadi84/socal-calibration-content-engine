@@ -6,10 +6,13 @@ import {
   ExtractedKeywordsSchema,
   type ArticleLength,
 } from '@/lib/prompts/article';
+import { selectVariation } from '@/lib/prompts/variation';
 import { calculateSEOScore } from '@/lib/seo/scoring';
 import { generateArticleJsonLd } from '@/lib/jsonld/generators';
 import { retrieveKnowledge } from '@/lib/knowledge';
 import { retrieveAuthoritativeContext } from '@/lib/authoritative';
+import { injectClusterLinks } from '@/lib/services/cluster-linking';
+import { fillPractitionerNotes } from '@/lib/services/practitioner-fill';
 import * as db from '@/lib/db/queries';
 
 // ─── Content Velocity Controls ───────────────────────────────────────
@@ -167,6 +170,10 @@ export async function generateArticle(
     }
 
     // 3. Generate article content (Step 1)
+    // Select content variation for AI detection resistance
+    const variationSeed = pillar.name + category.name + (location?.city || '');
+    const variation = selectVariation(variationSeed);
+
     const prompt = buildArticlePrompt({
       pillar: { name: pillar.name, description: pillar.description || '' },
       category: { name: category.name, description: category.description || '' },
@@ -181,20 +188,37 @@ export async function generateArticle(
       knowledgeContext: knowledgeResult.context || null,
       authoritativeContext: authoritativeContext.context || null,
       businessContext: businessResult.context || null,
+      styleDirective: variation.styleDirective,
+      articleFormat: variation.formatInstructions || undefined,
     });
 
     const contentResult = await generateJSON(prompt, GeneratedArticleSchema, {
-      systemPrompt:
-        'You are a technical content writer for SoCal Calibration, a precision calibration company in Southern California. Write authoritative, SEO-optimized articles grounded in real standards, regulations, and technical specifications.',
-      temperature: 0.7,
+      systemPrompt: variation.systemPrompt,
+      temperature: variation.temperature,
       maxTokens: 16384,
     });
 
     const generated = contentResult.content;
 
+    // 3.5. Auto-fill practitioner note placeholders using Gemini
+    let filledBodyHtml = generated.body_html;
+    let notesFilled = 0;
+    try {
+      const fillResult = await fillPractitionerNotes(generated.body_html, {
+        pillar: pillar.name,
+        category: category.name,
+        location: location?.city || null,
+        articleTitle: generated.title,
+      });
+      filledBodyHtml = fillResult.filledHtml;
+      notesFilled = fillResult.notesFilled;
+    } catch (err) {
+      console.error('Practitioner note auto-fill failed, continuing with placeholders:', err);
+    }
+
     // 4. Extract keywords (Step 2 — separate call, content-first)
     const keywordPrompt = buildKeywordExtractionPrompt(
-      generated.body_html,
+      filledBodyHtml,
       location
     );
 
@@ -208,11 +232,29 @@ export async function generateArticle(
 
     // 5. Generate JSON-LD (moved before SEO scoring so scorer can check presence)
     const slug = generated.slug_candidates[0] || '';
+
+    // Build author info from settings (fetched earlier at line ~151)
+    let authorSettings: { name: string; title?: string; bio?: string; imageUrl?: string; profileUrl?: string } | undefined;
+    try {
+      const settings = await db.getSettings();
+      if (settings.author_name) {
+        authorSettings = {
+          name: settings.author_name,
+          title: settings.author_title || undefined,
+          bio: settings.author_bio || undefined,
+          imageUrl: settings.author_image_url || undefined,
+          profileUrl: settings.author_profile_url || undefined,
+        };
+      }
+    } catch {
+      // Settings may have already been fetched above; ignore errors
+    }
+
     const jsonLd = generateArticleJsonLd({
       article: {
         title: generated.title,
         meta_description: generated.meta_description,
-        body_html: generated.body_html,
+        body_html: filledBodyHtml,
         word_count: generated.word_count,
         seo_keywords: keywords.seo_keywords,
         faq: generated.faq,
@@ -220,25 +262,41 @@ export async function generateArticle(
       location,
       category: category.name,
       slug,
+      author: authorSettings,
     });
+
+    // 5.5. Cluster linking — inject links to sibling articles in same pillar/category
+    let enrichedBodyHtml = filledBodyHtml;
+    let clusterLinksAdded = 0;
+    try {
+      const siblings = await db.getSiblingArticles(article.id, pillarId, categoryId);
+      if (siblings.length > 0) {
+        const clusterResult = injectClusterLinks(filledBodyHtml, siblings, 3);
+        enrichedBodyHtml = clusterResult.enrichedHtml;
+        clusterLinksAdded = clusterResult.clusterLinksAdded;
+      }
+    } catch (err) {
+      console.error('Cluster linking failed, continuing without:', err);
+    }
 
     // 6. Calculate SEO score (deterministic, no LLM)
     const seoAnalysis = calculateSEOScore({
       title: generated.title,
       meta_title: generated.meta_title,
       meta_description: generated.meta_description,
-      content: generated.body_html,
+      content: enrichedBodyHtml,
       slug,
       seo_keywords: keywords.seo_keywords,
       primary_keyword: keywords.primary_keyword,
       json_ld: jsonLd,
+      clusterLinks: clusterLinksAdded,
     });
 
     // 7. Update article with all generated content
     const updatedArticle = await db.updateArticle(article.id, {
       status: 'pending_review',
       title: generated.title,
-      body_html: generated.body_html,
+      body_html: enrichedBodyHtml,
       meta_title: generated.meta_title,
       meta_description: generated.meta_description,
       h2_structure: generated.h2_structure,
@@ -255,7 +313,7 @@ export async function generateArticle(
       fact_density_score: seoAnalysis.factDensity,
       fact_density_breakdown: seoAnalysis.breakdown.factDensity,
       knowledge_sources: [...knowledgeResult.sources, ...businessResult.sources, ...authoritativeContext.sources],
-      practitioner_notes_added: false,
+      practitioner_notes_added: notesFilled > 0,
     });
 
     return {

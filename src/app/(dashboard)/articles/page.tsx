@@ -20,7 +20,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 type Article = {
   id: string;
@@ -53,6 +54,8 @@ export default function ArticlesPage() {
   const [offset, setOffset] = useState(0);
   const [status, setStatus] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   const fetchArticles = useCallback(async () => {
     setLoading(true);
@@ -76,6 +79,44 @@ export default function ArticlesPage() {
   function handleStatusChange(value: string | null) {
     setStatus(value || 'all');
     setOffset(0);
+    setSelected(new Set());
+  }
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selected.size === articles.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(articles.map((a) => a.id)));
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (selected.size === 0) return;
+    setDeleting(true);
+    try {
+      const res = await fetch('/api/articles', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selected) }),
+      });
+      if (!res.ok) throw new Error('Delete failed');
+      toast.success(`Deleted ${selected.size} article(s)`);
+      setSelected(new Set());
+      fetchArticles();
+    } catch {
+      toast.error('Failed to delete articles');
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -83,6 +124,17 @@ export default function ArticlesPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">Articles</h1>
         <div className="flex items-center gap-2">
+          {selected.size > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleBulkDelete}
+              disabled={deleting}
+            >
+              <Trash2 className="mr-1 size-4" />
+              {deleting ? 'Deleting...' : `Delete ${selected.size}`}
+            </Button>
+          )}
           <Select value={status} onValueChange={handleStatusChange}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="All statuses" />
@@ -104,6 +156,14 @@ export default function ArticlesPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <input
+                  type="checkbox"
+                  className="size-4 rounded border-input"
+                  checked={articles.length > 0 && selected.size === articles.length}
+                  onChange={toggleSelectAll}
+                />
+              </TableHead>
               <TableHead className="min-w-[200px]">Title</TableHead>
               <TableHead>Pillar</TableHead>
               <TableHead>Category</TableHead>
@@ -118,7 +178,7 @@ export default function ArticlesPage() {
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 8 }).map((_, j) => (
+                  {Array.from({ length: 9 }).map((_, j) => (
                     <TableCell key={j}>
                       <Skeleton className="h-4 w-full" />
                     </TableCell>
@@ -127,13 +187,21 @@ export default function ArticlesPage() {
               ))
             ) : articles.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
                   No articles found
                 </TableCell>
               </TableRow>
             ) : (
               articles.map((article) => (
                 <TableRow key={article.id} className="cursor-pointer hover:bg-muted/50">
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="size-4 rounded border-input"
+                      checked={selected.has(article.id)}
+                      onChange={() => toggleSelect(article.id)}
+                    />
+                  </TableCell>
                   <TableCell>
                     <Link
                       href={`/articles/${article.id}`}

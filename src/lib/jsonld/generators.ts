@@ -16,6 +16,13 @@ export interface JsonLdInput {
   category: string;
   slug?: string | null;
   publishedAt?: string | null;
+  author?: {
+    name: string;
+    title?: string;
+    bio?: string;
+    imageUrl?: string;
+    profileUrl?: string;
+  };
 }
 
 interface JsonLdSchema {
@@ -52,11 +59,25 @@ export function generateArticleJsonLd(input: JsonLdInput): JsonLdOutput {
     datePublished: publishDate,
     dateModified: now,
     url: articleUrl,
-    author: {
-      '@type': 'Organization',
-      name: ORG.name,
-      url: ORG.url,
-    },
+    author: input.author
+      ? {
+          '@type': 'Person',
+          name: input.author.name,
+          ...(input.author.title && { jobTitle: input.author.title }),
+          ...(input.author.bio && { description: input.author.bio }),
+          ...(input.author.imageUrl && { image: input.author.imageUrl }),
+          ...(input.author.profileUrl && { url: input.author.profileUrl }),
+          worksFor: {
+            '@type': 'Organization',
+            name: ORG.name,
+            url: ORG.url,
+          },
+        }
+      : {
+          '@type': 'Organization',
+          name: ORG.name,
+          url: ORG.url,
+        },
     publisher: {
       '@type': 'Organization',
       name: ORG.name,

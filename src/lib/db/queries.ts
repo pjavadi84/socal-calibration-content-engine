@@ -153,6 +153,53 @@ export async function getArticles(filters?: {
   return { data, count };
 }
 
+// ─── Article Delete ──────────────────────────────────────────────────
+
+export async function deleteArticle(id: string) {
+  const db = createServiceClient();
+  const { error } = await db
+    .from('articles')
+    .delete()
+    .eq('id', id);
+  if (error) throw new Error(`Failed to delete article: ${error.message}`);
+}
+
+export async function deleteArticles(ids: string[]) {
+  const db = createServiceClient();
+  const { error } = await db
+    .from('articles')
+    .delete()
+    .in('id', ids);
+  if (error) throw new Error(`Failed to delete articles: ${error.message}`);
+}
+
+// ─── Cluster / Sibling Queries ────────────────────────────────────────
+
+export async function getSiblingArticles(
+  articleId: string,
+  pillarId: string,
+  categoryId: string
+) {
+  const db = createServiceClient();
+  const { data, error } = await db
+    .from('articles')
+    .select('id, title, slug, primary_keyword')
+    .eq('pillar_id', pillarId)
+    .eq('category_id', categoryId)
+    .neq('id', articleId)
+    .in('status', ['pending_review', 'approved', 'published'])
+    .not('slug', 'is', null)
+    .not('title', 'is', null)
+    .limit(10);
+  if (error) throw new Error(`Failed to fetch sibling articles: ${error.message}`);
+  return (data || []) as Array<{
+    id: string;
+    title: string;
+    slug: string;
+    primary_keyword: string | null;
+  }>;
+}
+
 // ─── Social Post Queries ──────────────────────────────────────────────
 
 export async function createSocialPost(post: Record<string, unknown>) {

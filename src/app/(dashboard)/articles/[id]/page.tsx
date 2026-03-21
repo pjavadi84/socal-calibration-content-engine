@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Check, X, RefreshCw, Copy, ArrowLeft, Upload, ExternalLink } from 'lucide-react';
+import { Check, X, RefreshCw, Copy, ArrowLeft, Upload, ExternalLink, AlertTriangle, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -57,6 +57,19 @@ type SocialPost = {
   call_to_action: string;
 };
 
+const PRACTITIONER_NOTE_PATTERN = /<!--\s*PRACTITIONER_NOTE:\s*([\s\S]*?)-->/g;
+
+function extractPractitionerNotes(bodyHtml: string): string[] {
+  const notes: string[] = [];
+  const pattern = new RegExp(PRACTITIONER_NOTE_PATTERN.source, 'g');
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(bodyHtml)) !== null) {
+    const suggestion = match[1].trim();
+    if (suggestion) notes.push(suggestion);
+  }
+  return notes;
+}
+
 const statusColors: Record<string, string> = {
   generating: 'bg-yellow-100 text-yellow-800',
   pending_review: 'bg-blue-100 text-blue-800',
@@ -77,6 +90,7 @@ export default function ArticleDetailPage({
   const [socialPosts, setSocialPosts] = useState<SocialPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState('');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -103,13 +117,25 @@ export default function ArticleDetailPage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),
       });
-      if (!res.ok) throw new Error('Action failed');
       const data = await res.json();
+
+      if (res.status === 422 && data.pendingNotes) {
+        toast.error(
+          `Cannot push: ${data.pendingNotes.length} practitioner note(s) need attention`,
+          { duration: 6000 }
+        );
+        return;
+      }
+
+      if (!res.ok) throw new Error(data.error || 'Action failed');
       setArticle(data.article);
+
       if (action === 'push_to_wordpress') {
         toast.success('Pushed to WordPress');
       } else if (data.wordpress) {
-        toast.success(`Article approved & pushed to WordPress`);
+        toast.success('Article approved & pushed to WordPress');
+      } else if (action === 'approve' && data.pendingNotes?.length) {
+        toast.success('Article approved (auto-push skipped: practitioner notes pending)');
       } else {
         toast.success(`Article ${action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : action}`);
       }
@@ -117,6 +143,21 @@ export default function ArticleDetailPage({
       toast.error('Action failed');
     } finally {
       setActionLoading('');
+    }
+  }
+
+  async function handleDelete() {
+    setActionLoading('delete');
+    try {
+      const res = await fetch(`/api/articles/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Delete failed');
+      toast.success('Article deleted');
+      router.push('/articles');
+    } catch {
+      toast.error('Failed to delete article');
+    } finally {
+      setActionLoading('');
+      setConfirmingDelete(false);
     }
   }
 
@@ -239,6 +280,36 @@ export default function ArticleDetailPage({
             <RefreshCw className="mr-1 size-4" />
             Regenerate
           </Button>
+          {confirmingDelete ? (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDelete}
+                disabled={actionLoading === 'delete'}
+              >
+                {actionLoading === 'delete' ? 'Deleting...' : 'Confirm Delete'}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmingDelete(false)}
+                disabled={actionLoading === 'delete'}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setConfirmingDelete(true)}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="mr-1 size-4" />
+              Delete
+            </Button>
+          )}
         </div>
       </div>
 
@@ -408,9 +479,27 @@ export default function ArticleDetailPage({
               <CardTitle className="text-sm font-medium">Practitioner Notes</CardTitle>
             </CardHeader>
             <CardContent>
-              <Badge variant={article.practitioner_notes_used ? 'default' : 'outline'}>
-                {article.practitioner_notes_used ? 'Used' : 'Not used'}
-              </Badge>
+              {article.body_html && extractPractitionerNotes(article.body_html).length > 0 ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+                    <AlertTriangle className="size-4 shrink-0" />
+                    <span className="font-medium">
+                      {extractPractitionerNotes(article.body_html).length} unfilled practitioner note(s) — resolve before pushing to WordPress
+                    </span>
+                  </div>
+                  <ul className="space-y-1 text-sm text-muted-foreground">
+                    {extractPractitionerNotes(article.body_html).map((note, i) => (
+                      <li key={i} className="rounded border border-amber-200 bg-amber-50/50 p-2">
+                        {note}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <Badge variant="outline">
+                  No pending notes
+                </Badge>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

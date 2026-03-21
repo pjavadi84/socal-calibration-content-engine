@@ -861,12 +861,12 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 - [ ] Integrate SEC EDGAR API (public company filings for SoCal manufacturer expansions)
 
 *Infrastructure:*
-- [ ] Build query routing: article category → relevant APIs
-- [ ] Add LLM summarization of API results into `SUPPLEMENTARY AUTHORITATIVE CONTEXT`
-- [ ] Implement 7-day result caching per query
-- [ ] Add safety guardrails: .gov-only sources, source URL attribution, local KB priority
-- [ ] Store authoritative sources in `knowledge_sources` with full URLs
-- [ ] Add authoritative retrieval toggle in dashboard settings (enable/disable per generation)
+- [x] Build query routing: article category → relevant APIs
+- [x] Add LLM summarization of API results into `SUPPLEMENTARY AUTHORITATIVE CONTEXT`
+- [x] Implement 7-day result caching per query
+- [x] Add safety guardrails: .gov-only sources, source URL attribution, local KB priority
+- [x] Store authoritative sources in `knowledge_sources` with full URLs
+- [x] Add authoritative retrieval toggle in dashboard settings (enable/disable per generation)
 
 **Other Advanced Features:**
 - [ ] AI image generation (article hero images via Gemini)
@@ -877,6 +877,46 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 - [ ] LinkedIn API integration for direct social posting
 - [ ] GMB post generation and scheduling
 - [ ] LLM-powered knowledge freshness checks (search for standard updates, produce diff summary)
+
+### Phase 7: SEO & Ranking Improvements
+
+**Goal:** Close gaps in Google's newer ranking signals — E-E-A-T authority, AI detection resistance, topical authority, and content quality gates.
+
+**Practitioner Note Validation & Auto-Fill:**
+- [x] Practitioner note validation gate (block WordPress push if unfilled `<!-- PRACTITIONER_NOTE: -->` comments remain)
+- [x] Extract and display pending practitioner notes in article detail UI (amber warning banner)
+- [x] Handle 422 validation errors in frontend with note-specific toast messages
+- [x] Auto-fill practitioner notes using Gemini (generate authentic first-person observations as author)
+- [x] Integrate auto-fill into generation pipeline (runs after article generation, before keyword extraction)
+
+**E-E-A-T / Author Authority Signals:**
+- [x] Database migration for author settings (author_name, author_title, author_bio, author_image_url, author_profile_url)
+- [x] JSON-LD author upgrade: `@type: "Person"` with jobTitle, bio, image, URL, worksFor (falls back to Organization)
+- [x] Author byline prepended to WordPress content on push (`<p class="article-byline">`)
+- [x] Settings UI for Author / E-E-A-T configuration (name, title, bio, image upload, profile URL)
+- [x] Image upload to Supabase Storage (public `assets` bucket) with preview in settings
+- [x] Upload API endpoint with file type/size validation
+
+**AI Detection Resistance (Content Variation):**
+- [x] 4 distinct system prompt variants (technical-authoritative, conversational-expert, problem-solution, narrative-journalistic)
+- [x] 5 style directives controlling contraction frequency, active/passive mix, paragraph length, transitions, rhetorical questions
+- [x] 3 article formats (standard, listicle, how-to) with format-specific structure instructions
+- [x] Deterministic variation selection via string hash of pillar+category+location seed
+- [x] Variable temperature (0.6–0.8) per variation
+- [x] Style directive and format instructions injected into article prompt
+
+**Topical Authority / Cluster Linking:**
+- [x] Cluster linking service: inject `<a href="/blog/{slug}">` links to sibling articles in same pillar/category
+- [x] Safe link injection (skips text inside existing `<a>` tags and headings)
+- [x] `getSiblingArticles` query (same pillar+category, non-null slug, valid statuses)
+- [x] Cluster link bonus in SEO scoring (up to 2 pts in links category)
+- [x] Integrated into generation pipeline after JSON-LD, before SEO scoring
+
+**Article Management:**
+- [x] Single article delete (API + UI with confirmation)
+- [x] Bulk article delete with checkbox selection on articles list page
+
+**Deliverable:** Articles have varied structure/voice, author authority signals in JSON-LD, auto-filled practitioner observations, and cross-linking between related articles. WordPress push is blocked if quality gates fail.
 
 ---
 

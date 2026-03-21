@@ -36,7 +36,7 @@ export interface SEOAnalysis {
     content: { wordCount: number; optimalWordCount: boolean; headings: number; imagesWithAlt: number; totalImages: number; score: number; maxScore: number };
     structure: { hasSlug: boolean; headingHierarchy: boolean; jsonLdPresent: boolean; score: number; maxScore: number };
     readability: { averageSentenceLength: number; paragraphLength: number; fleschKincaidGrade: number; score: number; maxScore: number };
-    links: { internalLinks: number; externalLinks: number; score: number; maxScore: number };
+    links: { internalLinks: number; externalLinks: number; clusterLinks: number; score: number; maxScore: number };
     factDensity: { citations: number; numericalDataPoints: number; namedSpecifics: number; score: number; maxScore: number };
     businessRelevance: { costLanguage: number; consequenceLanguage: number; decisionMakerFraming: number; score: number; maxScore: number };
   };
@@ -51,6 +51,7 @@ export interface ArticleContent {
   seo_keywords?: string[];
   primary_keyword?: string;
   json_ld?: unknown;
+  clusterLinks?: number;
 }
 
 export function calculateSEOScore(article: ArticleContent): SEOAnalysis {
@@ -63,7 +64,7 @@ export function calculateSEOScore(article: ArticleContent): SEOAnalysis {
     content: analyzeContent(article.content || ''),
     structure: analyzeStructure(article.content || '', article.slug, article.json_ld),
     readability: analyzeReadability(article.content || ''),
-    links: analyzeLinks(article.content || ''),
+    links: analyzeLinks(article.content || '', article.clusterLinks),
     factDensity: analyzeFactDensity(article.content || ''),
     businessRelevance: analyzeBusinessRelevance(article.content || ''),
   };
@@ -340,25 +341,31 @@ function analyzeReadability(content: string) {
 
 // ─── Links (8 pts) ───────────────────────────────────────────────────
 
-function analyzeLinks(content: string) {
+function analyzeLinks(content: string, clusterLinksCount?: number) {
   const allLinks = content.match(/<a[^>]*href=["'][^"']*["'][^>]*>/gi) || [];
   const externalLinkMatches = content.match(/<a[^>]*href=["']https?:\/\/[^"']+["'][^>]*>/gi) || [];
   const externalLinks = externalLinkMatches.length;
   const internalLinks = allLinks.length - externalLinks;
   const totalLinks = allLinks.length;
+  const clusterLinks = clusterLinksCount || 0;
 
   let score = 0;
   if (totalLinks >= 3) score += 3;
   else if (totalLinks >= 1) score += 1;
 
-  if (internalLinks >= 3 && internalLinks <= 10) score += 3;
-  else if (internalLinks > 10) score += 2;
+  // Internal links: reduced max from 3 to 2 pts to make room for cluster link bonus
+  if (internalLinks >= 3 && internalLinks <= 10) score += 2;
+  else if (internalLinks > 10) score += 1;
   else if (internalLinks >= 1) score += 1;
 
   if (externalLinks >= 1 && externalLinks <= 5) score += 2;
   else if (externalLinks > 5) score += 1;
 
-  return { internalLinks, externalLinks, score: Math.min(8, score), maxScore: 8 };
+  // Cluster link bonus: up to 2 pts (replaces 1 pt from internal links max)
+  if (clusterLinks >= 2) score += 2;
+  else if (clusterLinks >= 1) score += 1;
+
+  return { internalLinks, externalLinks, clusterLinks, score: Math.min(8, score), maxScore: 8 };
 }
 
 // ─── Fact Density (15 pts) ──────────────────────────────────────────

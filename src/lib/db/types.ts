@@ -315,6 +315,11 @@ export type Database = {
           auto_push_on_approve: boolean
           authoritative_apis_enabled: boolean
           authoritative_apis_config: Json
+          author_name: string | null
+          author_title: string | null
+          author_bio: string | null
+          author_image_url: string | null
+          author_profile_url: string | null
           updated_at: string
         }
         Insert: {
@@ -325,6 +330,11 @@ export type Database = {
           auto_push_on_approve?: boolean
           authoritative_apis_enabled?: boolean
           authoritative_apis_config?: Json
+          author_name?: string | null
+          author_title?: string | null
+          author_bio?: string | null
+          author_image_url?: string | null
+          author_profile_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -335,6 +345,11 @@ export type Database = {
           auto_push_on_approve?: boolean
           authoritative_apis_enabled?: boolean
           authoritative_apis_config?: Json
+          author_name?: string | null
+          author_title?: string | null
+          author_bio?: string | null
+          author_image_url?: string | null
+          author_profile_url?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -558,6 +573,11 @@ export interface Settings {
   auto_push_on_approve: boolean;
   authoritative_apis_enabled: boolean;
   authoritative_apis_config: Json;
+  author_name: string | null;
+  author_title: string | null;
+  author_bio: string | null;
+  author_image_url: string | null;
+  author_profile_url: string | null;
   updated_at: string;
 }
 

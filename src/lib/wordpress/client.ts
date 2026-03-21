@@ -195,14 +195,17 @@ export async function pushArticleToWordPress(
     slug: string;
     category_name: string;
     json_ld?: string;
+    author_byline?: string;
   },
   creds?: WPCredentials
 ): Promise<{ wpPostId: number; wpPostUrl: string }> {
   // Find or create the WP category
   const categoryId = await findOrCreateCategory(article.category_name, creds);
 
-  // Append JSON-LD to content if available
-  let content = article.body_html;
+  // Prepend author byline if provided
+  let content = article.author_byline
+    ? `<p class="article-byline"><em>${article.author_byline}</em></p>\n\n${article.body_html}`
+    : article.body_html;
   if (article.json_ld) {
     content += `\n\n<!-- JSON-LD Structured Data -->\n${article.json_ld}`;
   }
