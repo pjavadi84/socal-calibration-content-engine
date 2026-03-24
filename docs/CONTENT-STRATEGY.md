@@ -74,20 +74,22 @@
 
 ### Month 1 Schedule (12 articles)
 
-| Week | Article                                                  | Pillar              | Category                      | Location    |
-| ---- | -------------------------------------------------------- | ------------------- | ----------------------------- | ----------- |
-| 1    | Scale Calibration Services in Irvine                     | Calibration Services | Scale Calibration             | Irvine      |
-| 1    | Scale Calibration Services in Los Angeles                | Calibration Services | Scale Calibration             | Los Angeles |
-| 1    | Scale Calibration Services in San Diego                  | Calibration Services | Scale Calibration             | San Diego   |
-| 2    | Medical Equipment Calibration in Irvine                  | Calibration Services | Medical Equipment Calibration | Irvine      |
-| 2    | Medical Equipment Calibration in Los Angeles             | Calibration Services | Medical Equipment Calibration | Los Angeles |
-| 2    | Medical Equipment Calibration in Anaheim                 | Calibration Services | Medical Equipment Calibration | Anaheim     |
-| 3    | Electrical Calibration Services in Los Angeles           | Calibration Services | Electrical Calibration        | Los Angeles |
-| 3    | Electrical Calibration Services in Irvine                | Calibration Services | Electrical Calibration        | Irvine      |
-| 3    | Electrical Calibration Services in San Diego             | Calibration Services | Electrical Calibration        | San Diego   |
-| 4    | Pressure Calibration Services in Long Beach              | Calibration Services | Pressure Calibration          | Long Beach  |
-| 4    | Pressure Calibration Services in Anaheim                 | Calibration Services | Pressure Calibration          | Anaheim     |
-| 4    | Pressure Calibration Services in Los Angeles             | Calibration Services | Pressure Calibration          | Los Angeles |
+| Week | Article                                                  | Pillar              | Category                      | Location    | Status |
+| ---- | -------------------------------------------------------- | ------------------- | ----------------------------- | ----------- | ------ |
+| 1    | Scale Calibration Services in Irvine                     | Calibration Services | Scale Calibration             | Irvine      | ✅ WP Draft (SEO: 79, 2085 words) |
+| 1    | Scale Calibration Services in Los Angeles                | Calibration Services | Scale Calibration             | Los Angeles | ✅ WP Draft (SEO: 84, 2178 words) |
+| 1    | Scale Calibration Services in San Diego                  | Calibration Services | Scale Calibration             | San Diego   | ✅ WP Draft (SEO: 81, 2228 words) |
+| 2    | Medical Equipment Calibration in Irvine                  | Calibration Services | Medical Equipment Calibration | Irvine      | ✅ WP Draft (SEO: 85, 2356 words) |
+| 2    | Medical Equipment Calibration in Los Angeles             | Calibration Services | Medical Equipment Calibration | Los Angeles | ✅ WP Draft (SEO: 89, 2550 words) |
+| 2    | Medical Equipment Calibration in Anaheim                 | Calibration Services | Medical Equipment Calibration | Anaheim     | ✅ WP Draft (SEO: 84, 2185 words) |
+| 3    | Electrical Calibration Services in Los Angeles           | Calibration Services | Electrical Calibration        | Los Angeles | Pending |
+| 3    | Electrical Calibration Services in Irvine                | Calibration Services | Electrical Calibration        | Irvine      | Pending |
+| 3    | Electrical Calibration Services in San Diego             | Calibration Services | Electrical Calibration        | San Diego   | Pending |
+| 4    | Pressure Calibration Services in Long Beach              | Calibration Services | Pressure Calibration          | Long Beach  | Pending |
+| 4    | Pressure Calibration Services in Anaheim                 | Calibration Services | Pressure Calibration          | Anaheim     | Pending |
+| 4    | Pressure Calibration Services in Los Angeles             | Calibration Services | Pressure Calibration          | Los Angeles | Pending |
+
+> **Progress:** 6/12 articles generated and pushed to WordPress as drafts (March 24, 2026). Remaining 6 blocked by monthly velocity limit (12/12). Bump limit or wait until April to continue.
 
 ### Month 2 Schedule (12 articles)
 
