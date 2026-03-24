@@ -203,11 +203,118 @@ function refineSlug(slug: string, primaryKeyword: string): string {
 }
 
 /**
+ * Split paragraphs that exceed the word limit into smaller chunks.
+ * Yoast flags paragraphs over 150 words; we target 100 words max.
+ */
+function splitLongParagraphs(bodyHtml: string, maxWords: number = 100): string {
+  return bodyHtml.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (fullMatch, attrs, content) => {
+    const plainText = content.replace(/<[^>]*>/g, '');
+    const wordCount = plainText.trim().split(/\s+/).length;
+
+    if (wordCount <= maxWords) return fullMatch;
+
+    // Split on sentence boundaries within the paragraph
+    const sentences = content.split(/(?<=[.!?])\s+/);
+    const chunks: string[] = [];
+    let current: string[] = [];
+    let currentWords = 0;
+
+    for (const sentence of sentences) {
+      const sentenceWords = sentence.replace(/<[^>]*>/g, '').trim().split(/\s+/).length;
+      if (currentWords + sentenceWords > maxWords && current.length > 0) {
+        chunks.push(current.join(' '));
+        current = [sentence];
+        currentWords = sentenceWords;
+      } else {
+        current.push(sentence);
+        currentWords += sentenceWords;
+      }
+    }
+    if (current.length > 0) chunks.push(current.join(' '));
+
+    return chunks.map(chunk => `<p${attrs}>${chunk}</p>`).join('\n');
+  });
+}
+
+/**
+ * Insert H3 subheadings into H2 sections that exceed the word limit without any subheadings.
+ * Yoast flags sections over 300 words without subheadings.
+ */
+function breakLongSections(bodyHtml: string, maxWordsWithoutSubheading: number = 280): string {
+  // Split HTML into sections by H2 tags
+  const h2Pattern = /(<h2[^>]*>[\s\S]*?<\/h2>)/gi;
+  const parts = bodyHtml.split(h2Pattern);
+
+  const result: string[] = [];
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+
+    // If this part is an H2 tag, just push it
+    if (/<h2[^>]*>/i.test(part)) {
+      result.push(part);
+      continue;
+    }
+
+    // If this section already has H3 tags or is before the first H2, skip
+    if (/<h3[^>]*>/i.test(part) || i === 0) {
+      result.push(part);
+      continue;
+    }
+
+    // Count words in this section (text between this H2 and the next)
+    const plainText = part.replace(/<[^>]*>/g, '');
+    const wordCount = plainText.trim().split(/\s+/).filter(w => w).length;
+
+    if (wordCount <= maxWordsWithoutSubheading) {
+      result.push(part);
+      continue;
+    }
+
+    // Insert H3 subheadings by splitting at paragraph boundaries
+    const paragraphs = part.split(/(?=<p[^>]*>)/i).filter(p => p.trim());
+    let sectionWords = 0;
+    let needsBreak = false;
+    const sectionParts: string[] = [];
+
+    for (const paragraph of paragraphs) {
+      const pText = paragraph.replace(/<[^>]*>/g, '').trim();
+      const pWords = pText.split(/\s+/).filter(w => w).length;
+
+      if (sectionWords > 0 && sectionWords + pWords > maxWordsWithoutSubheading && needsBreak) {
+        // Extract a short phrase from the next paragraph for the H3
+        const firstSentence = pText.split(/[.!?]/)[0].trim();
+        const h3Text = firstSentence.length > 60
+          ? firstSentence.split(/,/)[0].trim().substring(0, 60)
+          : firstSentence;
+        if (h3Text.length > 10) {
+          sectionParts.push(`<h3>${h3Text}</h3>\n`);
+        }
+        sectionWords = 0;
+        needsBreak = false;
+      }
+
+      sectionParts.push(paragraph);
+      sectionWords += pWords;
+      if (sectionWords >= maxWordsWithoutSubheading / 2) {
+        needsBreak = true;
+      }
+    }
+
+    result.push(sectionParts.join(''));
+  }
+
+  return result.join('');
+}
+
+/**
  * Run all Yoast refinements on article content after keyword extraction.
  */
 export function refineForYoast(input: RefinementInput): RefinementOutput {
   let bodyHtml = refineFirstParagraph(input.bodyHtml, input.primaryKeyword);
   bodyHtml = refineSubheadings(bodyHtml, input.primaryKeyword);
+  bodyHtml = splitLongParagraphs(bodyHtml);
+  bodyHtml = breakLongSections(bodyHtml);
 
   return {
     metaTitle: refineMetaTitle(input.metaTitle, input.primaryKeyword),

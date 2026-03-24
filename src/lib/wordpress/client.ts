@@ -17,6 +17,7 @@ interface WPPostPayload {
   tags?: number[];
   slug?: string;
   meta?: Record<string, string>;
+  featured_media?: number;
 }
 
 interface WPPost {
@@ -215,6 +216,74 @@ export async function testConnection(creds: WPCredentials): Promise<{ success: t
 }
 
 /**
+ * Upload an image to the WordPress Media Library from a URL.
+ * Downloads the image and uploads it as a media attachment.
+ * Returns the media ID for use as featured_media.
+ */
+async function uploadMediaFromUrl(
+  imageUrl: string,
+  altText: string,
+  creds?: WPCredentials
+): Promise<number | null> {
+  try {
+    const imageResponse = await fetch(imageUrl);
+    if (!imageResponse.ok) return null;
+
+    const buffer = await imageResponse.arrayBuffer();
+    const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+    const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
+    const filename = `${altText.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 50)}.${ext}`;
+
+    const { siteUrl } = getConfig(creds);
+    const response = await fetch(`${siteUrl}/wp-json/wp/v2/media`, {
+      method: 'POST',
+      headers: {
+        Authorization: getAuthHeader(creds),
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Type': contentType,
+      },
+      body: Buffer.from(buffer),
+    });
+
+    if (!response.ok) {
+      console.error(`Failed to upload media to WordPress: ${response.status}`);
+      return null;
+    }
+
+    const media = await response.json() as { id: number };
+
+    // Set alt text on the media attachment
+    await fetch(`${siteUrl}/wp-json/wp/v2/media/${media.id}`, {
+      method: 'POST',
+      headers: {
+        Authorization: getAuthHeader(creds),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ alt_text: altText }),
+    });
+
+    return media.id;
+  } catch (err) {
+    console.error('Failed to upload featured image to WordPress:', err);
+    return null;
+  }
+}
+
+/**
+ * Extract the first image URL and alt text from article HTML.
+ */
+function extractFirstImage(html: string): { url: string; alt: string } | null {
+  const match = html.match(/<img[^>]+src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>/i)
+    || html.match(/<img[^>]+alt="([^"]*)"[^>]*src="([^"]+)"[^>]*>/i);
+  if (!match) return null;
+  // Handle both attribute orderings
+  if (html.match(/<img[^>]+src="([^"]+)"[^>]*alt="([^"]*)"[^>]*>/i)) {
+    return { url: match[1], alt: match[2] };
+  }
+  return { url: match[2], alt: match[1] };
+}
+
+/**
  * Push an article to WordPress as a draft
  */
 export async function pushArticleToWordPress(
@@ -242,12 +311,25 @@ export async function pushArticleToWordPress(
     content += `\n\n<!-- JSON-LD Structured Data -->\n${article.json_ld}`;
   }
 
+  // Upload first article image as WordPress featured image
+  let featuredMediaId: number | undefined;
+  const firstImage = extractFirstImage(article.body_html);
+  if (firstImage) {
+    const mediaId = await uploadMediaFromUrl(
+      firstImage.url,
+      firstImage.alt || article.title,
+      creds
+    );
+    if (mediaId) featuredMediaId = mediaId;
+  }
+
   const post = await createDraftPost({
     title: article.title,
     content,
     status: 'draft',
     slug: article.slug,
     categories: [categoryId],
+    featured_media: featuredMediaId,
   }, creds);
 
   // Set Yoast SEO fields via form-encoded POST (JSON format is silently dropped by WP)

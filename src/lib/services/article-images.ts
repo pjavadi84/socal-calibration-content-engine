@@ -55,7 +55,7 @@ function determineImagePlacements(
 
     placements.push({
       heading: h2.heading,
-      prompt: buildImagePrompt(h2.heading, context, category),
+      prompt: buildImagePrompt(h2.heading, context, category, placements.length),
       insertAfterIndex: paragraphEnd,
     });
   }
@@ -64,14 +64,38 @@ function determineImagePlacements(
 }
 
 /**
- * Build a descriptive prompt for image generation based on section context.
+ * Image scene types to ensure variety across article images.
+ * Alternates between technical/lab settings and customer-facing scenes.
  */
-function buildImagePrompt(heading: string, paragraphContext: string, category: string): string {
+const IMAGE_SCENE_TYPES = [
+  {
+    type: 'customer-facing',
+    directive: `Show a customer-facing scene: a calibration technician on-site at a client's facility, delivering or picking up equipment, consulting with a client, or a friendly handoff moment. Include people — a technician in a company polo interacting with a facility manager or quality engineer. The setting should be a client workspace, loading dock, factory floor, or office — NOT a lab. Convey trust, professionalism, and personal service.`,
+  },
+  {
+    type: 'technical',
+    directive: `Show a technical lab or workshop scene: precision instruments being calibrated, a clean metrology lab, close-up of measurement equipment, or a technician performing a calibration procedure. Focus on the equipment, tools, and technical expertise. The setting should be a calibration lab, test bench, or controlled environment.`,
+  },
+  {
+    type: 'business-outcome',
+    directive: `Show a business or industry scene: a quality manager reviewing calibration certificates, a manufacturing line with properly calibrated equipment running smoothly, a compliance audit in progress, or a warehouse/facility where calibrated instruments are in active use. Convey the real-world impact of calibration on business operations. Include people in professional or industrial settings.`,
+  },
+] as const;
+
+/**
+ * Build a descriptive prompt for image generation based on section context.
+ * Cycles through scene types to create visual variety in articles.
+ */
+function buildImagePrompt(heading: string, paragraphContext: string, category: string, imageIndex: number): string {
+  const scene = IMAGE_SCENE_TYPES[imageIndex % IMAGE_SCENE_TYPES.length];
+
   return `Subject: "${heading}" in the context of ${category}.
 
 Scene context: ${paragraphContext}
 
-Create a professional photograph showing calibration equipment, precision instruments, or industrial quality control related to this topic. The image should look like it belongs in a professional trade publication or corporate website.`;
+${scene.directive}
+
+The image should look like it belongs in a professional trade publication or corporate website.`;
 }
 
 /**

@@ -178,11 +178,12 @@ YOAST SEO OPTIMIZATION (CRITICAL — follow all of these):
 3. META DESCRIPTION:
    - meta_description MUST contain the primary keyword
    - Keep meta_description between 120-150 characters
-4. READABILITY (Yoast Flesch/sentence analysis):
-   - Keep at least 75% of sentences UNDER 20 words — mix short punchy sentences with longer ones
-   - Use ACTIVE voice for at least 90% of sentences — avoid passive constructions ("was calibrated" → "we calibrated", "is required" → "you need")
-   - Use TRANSITION WORDS in at least 30% of sentences — examples: "however", "therefore", "in addition", "as a result", "for example", "moreover", "consequently", "furthermore", "in fact", "on the other hand", "specifically", "most importantly"
-   - Keep paragraphs to 3-5 sentences maximum
+4. READABILITY (Yoast Flesch/sentence analysis — these are STRICT requirements, not suggestions):
+   - SENTENCE LENGTH (CRITICAL): Keep at least 80% of sentences UNDER 20 words. Write short, direct sentences. Break long compound sentences into two. Never chain more than two clauses with commas. Aim for 12-16 words on average. Mix in one-line punchy sentences like "This matters." or "Here's why." between longer ones.
+   - ACTIVE VOICE (CRITICAL): Use active voice for at least 92% of sentences. NEVER use these passive patterns: "is required", "was calibrated", "are performed", "is measured", "was found", "is recommended", "are used", "is needed", "were tested", "is ensured". Instead write: "you need", "we calibrate", "technicians perform", "the gauge measures", "the audit found", "experts recommend", "labs use", "your facility needs", "we tested", "this ensures".
+   - TRANSITION WORDS: Use transition words in at least 30% of sentences — "however", "therefore", "in addition", "as a result", "for example", "moreover", "consequently", "furthermore", "in fact", "on the other hand", "specifically", "most importantly"
+   - PARAGRAPH LENGTH (CRITICAL): Keep every paragraph to 2-4 sentences and UNDER 100 words. Never write a paragraph longer than 5 sentences. If a paragraph feels long, split it.
+   - SUBHEADING DISTRIBUTION (CRITICAL): Never write more than 250 words between subheadings. Every H2 section MUST use H3 subheadings to break up content. Aim for an H3 every 150-200 words within an H2 section. A 500-word H2 section needs at least 2 H3 subheadings inside it.
 5. OUTBOUND LINKS:
    - Include at least 3 external links to authoritative sources using <a href="..." target="_blank" rel="noopener">
    - Links must point to real .gov, .org, or recognized industry websites

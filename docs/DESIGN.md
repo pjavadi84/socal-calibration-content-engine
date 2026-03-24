@@ -22,6 +22,7 @@
 11. [Implementation Phases](#11-implementation-phases)
 12. [Cost Estimates](#12-cost-estimates)
 13. [Risk & Transition Strategy](#13-risk--transition-strategy)
+14. [Content Strategy](#14-content-strategy)
 
 ---
 
@@ -606,7 +607,7 @@ WordPress has a built-in REST API. With an Application Password (available in WP
 1. **Create posts as drafts** — appear in WordPress dashboard for review
 2. **Set categories and tags** — map content matrix categories to WP categories
 3. **Set meta fields** — set meta title/description via Yoast SEO REST API fields
-4. **Set featured images** — upload and attach (future: AI-generated images)
+4. **Set featured images** — first AI-generated article image uploaded to WP Media Library and set as `featured_media`
 
 ### Authentication Setup
 
@@ -869,7 +870,7 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 - [x] Add authoritative retrieval toggle in dashboard settings (enable/disable per generation)
 
 **Other Advanced Features:**
-- [ ] AI image generation (article hero images via Gemini)
+- [x] AI image generation (article hero images via Gemini) — moved to Phase 7, completed
 - [ ] Competitor keyword analysis
 - [ ] Google Search Console integration (track actual ranking performance)
 - [ ] Content refresh (identify old articles that need updating)
@@ -922,6 +923,9 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 - [x] First paragraph injection if keyphrase is missing
 - [x] H2 subheading injection if keyphrase is missing
 - [x] Article prompt updated with Yoast-specific readability rules (sentence length, active voice, transition words)
+- [x] Strengthened readability prompt: 80%+ sentences under 20 words, 92%+ active voice, paragraphs under 100 words, H3 subheadings every 150-200 words
+- [x] Deterministic paragraph splitting: post-processing splits any paragraph over 100 words at sentence boundaries
+- [x] Deterministic section breaking: post-processing inserts H3 subheadings into H2 sections exceeding 280 words without subheadings
 - [x] Outbound links enforced as required (minimum 3 external links)
 
 **AI Image Generation:**
@@ -932,6 +936,8 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 - [x] Image alt attributes include primary keyword for Yoast SEO
 - [x] Image prompt enforces no brand names, logos, or text on equipment
 - [x] Integrated into generation pipeline after cluster linking, before SEO scoring
+- [x] WordPress featured image: first article image downloaded from Supabase, uploaded to WP Media Library, set as `featured_media` on the post
+- [x] Image scene variety: 3 rotating scene types per article — customer-facing (technician on-site, client interaction), technical (lab/instruments), business-outcome (compliance audits, manufacturing lines)
 
 **Content Readability:**
 - [x] Installed `@tailwindcss/typography` for proper prose rendering
@@ -1075,6 +1081,20 @@ If anything goes wrong:
 
 ---
 
+## 14. Content Strategy
+
+A detailed content strategy and publishing plan is documented separately in [`docs/CONTENT-STRATEGY.md`](./CONTENT-STRATEGY.md). It covers:
+
+- **3-phase rollout** aligned with the velocity ramp schedule (12 → 20 → 30 articles/month)
+- **Pillar priority order**: Calibration Services first (months 1–2), then Industry Compliance (months 3–4), then Equipment Guides + Industry Applications (month 5+)
+- **Location tiers**: Tier 1 (Irvine, LA, San Diego, Long Beach, Anaheim), Tier 2 (12 cities across OC/LA/IE), Tier 3 (8 remaining cities)
+- **Monthly content mix**: 60% service+location, 25% compliance, 15% equipment guides
+- **Week-by-week publishing calendar** for Month 1 (3 articles/week, Mon/Wed/Fri)
+- **Cluster linking strategy**: generate 3–4 articles per category before moving on
+- **KPIs & tracking**: organic traffic, keyword rankings, CTR, time on page, conversions
+
+---
+
 ## Appendix A: Keyword Strategy — Initial Target List
 
 ### High-Intent Service Keywords (vendor likely already targets these — DO NOT overlap)
@@ -1125,7 +1145,8 @@ If anything goes wrong:
 ```
 socal-calibration-content-engine/
 ├── docs/
-│   └── DESIGN.md                  # This document
+│   ├── DESIGN.md                  # This document
+│   └── CONTENT-STRATEGY.md        # Content strategy & publishing plan
 ├── knowledge-base/                # RAG knowledge base (curated Markdown)
 │   ├── standards/                 # Regulatory & standards documents
 │   │   ├── iso-17025-2017.md
