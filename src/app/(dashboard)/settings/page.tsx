@@ -15,9 +15,25 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Upload } from 'lucide-react';
+import { Loader2, Upload, RefreshCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import Image from 'next/image';
+
+interface RepushResult {
+  id: string;
+  title: string | null;
+  slug: string | null;
+  wp_post_id: number;
+  status: 'updated' | 'skipped' | 'failed';
+  changes: string[];
+  error?: string;
+}
+
+interface RepushResponse {
+  message: string;
+  summary: { updated: number; skipped: number; failed: number; total: number };
+  results: RepushResult[];
+}
 
 interface ApiConfig {
   openfda: boolean;
@@ -32,6 +48,11 @@ interface SettingsForm {
   auto_push_on_approve: boolean;
   authoritative_apis_enabled: boolean;
   authoritative_apis_config: ApiConfig;
+  gsc_enabled: boolean;
+  gsc_site_url: string;
+  gsc_url_prefix: string;
+  authoritative_nist_enabled: boolean;
+  authoritative_iso_alerts_enabled: boolean;
   author_name: string;
   author_title: string;
   author_bio: string;
@@ -53,6 +74,11 @@ export default function SettingsPage() {
     auto_push_on_approve: false,
     authoritative_apis_enabled: false,
     authoritative_apis_config: DEFAULT_API_CONFIG,
+    gsc_enabled: false,
+    gsc_site_url: '',
+    gsc_url_prefix: '/',
+    authoritative_nist_enabled: false,
+    authoritative_iso_alerts_enabled: false,
     author_name: '',
     author_title: '',
     author_bio: '',
@@ -65,6 +91,15 @@ export default function SettingsPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'connected' | 'failed'>('idle');
   const [connectionDetail, setConnectionDetail] = useState('');
+
+  useEffect(() => {
+    // Avoid useSearchParams() build-time suspense requirements
+    const params = new URLSearchParams(window.location.search);
+    const gsc = params.get('gsc');
+    const reason = params.get('reason');
+    if (gsc === 'connected') toast.success('Search Console connected');
+    if (gsc === 'error') toast.error(`Search Console connection failed${reason ? `: ${reason}` : ''}`);
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -82,6 +117,11 @@ export default function SettingsPage() {
             ...DEFAULT_API_CONFIG,
             ...(data.authoritative_apis_config || {}),
           },
+          gsc_enabled: data.gsc_enabled ?? false,
+          gsc_site_url: data.gsc_site_url || '',
+          gsc_url_prefix: data.gsc_url_prefix || '/',
+          authoritative_nist_enabled: data.authoritative_nist_enabled ?? false,
+          authoritative_iso_alerts_enabled: data.authoritative_iso_alerts_enabled ?? false,
           author_name: data.author_name || '',
           author_title: data.author_title || '',
           author_bio: data.author_bio || '',
@@ -117,6 +157,11 @@ export default function SettingsPage() {
           ...DEFAULT_API_CONFIG,
           ...(data.authoritative_apis_config || {}),
         },
+        gsc_enabled: data.gsc_enabled ?? false,
+        gsc_site_url: data.gsc_site_url || '',
+        gsc_url_prefix: data.gsc_url_prefix || '/',
+        authoritative_nist_enabled: data.authoritative_nist_enabled ?? false,
+        authoritative_iso_alerts_enabled: data.authoritative_iso_alerts_enabled ?? false,
         author_name: data.author_name || '',
         author_title: data.author_title || '',
         author_bio: data.author_bio || '',
@@ -201,6 +246,48 @@ export default function SettingsPage() {
         [key]: value,
       },
     });
+  }
+
+  const [repushing, setRepushing] = useState(false);
+  const [repushResults, setRepushResults] = useState<RepushResponse | null>(null);
+
+  async function handleRepush(dryRun: boolean) {
+    setRepushing(true);
+    setRepushResults(null);
+    try {
+      const url = dryRun ? '/api/articles/repush?dry_run=true' : '/api/articles/repush';
+      const res = await fetch(url, { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Re-push failed');
+      }
+      const data: RepushResponse = await res.json();
+      setRepushResults(data);
+      if (dryRun) {
+        toast.success(data.message);
+      } else {
+        toast.success(data.message);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Re-push failed');
+    } finally {
+      setRepushing(false);
+    }
+  }
+
+  async function handleConnectGsc() {
+    window.location.href = '/api/gsc/auth';
+  }
+
+  async function handleDisconnectGsc() {
+    try {
+      const res = await fetch('/api/gsc/disconnect', { method: 'POST' });
+      if (!res.ok) throw new Error('Failed');
+      setForm({ ...form, gsc_enabled: false });
+      toast.success('Disconnected Search Console');
+    } catch {
+      toast.error('Failed to disconnect Search Console');
+    }
   }
 
   if (loading) {
@@ -491,6 +578,201 @@ export default function SettingsPage() {
               {saving ? 'Saving...' : 'Save'}
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>Google Search Console</CardTitle>
+          <CardDescription>
+            Track actual ranking performance to guide content velocity and refresh decisions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="gsc-enabled">Enable Search Console</Label>
+              <p className="text-sm text-muted-foreground">
+                Requires connecting a Google account with Search Console access.
+              </p>
+            </div>
+            <Switch
+              id="gsc-enabled"
+              checked={form.gsc_enabled}
+              onCheckedChange={(checked) => setForm({ ...form, gsc_enabled: checked })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="gsc-site-url">Site Property URL</Label>
+            <Input
+              id="gsc-site-url"
+              placeholder="sc-domain:socalcalibration.com or https://socalcalibration.com/"
+              value={form.gsc_site_url}
+              onChange={(e) => setForm({ ...form, gsc_site_url: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="gsc-prefix">Blog URL Prefix</Label>
+            <Input
+              id="gsc-prefix"
+              placeholder="/blog/"
+              value={form.gsc_url_prefix}
+              onChange={(e) => setForm({ ...form, gsc_url_prefix: e.target.value })}
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="mr-1 size-4 animate-spin" />}
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+            <Button type="button" variant="outline" onClick={handleConnectGsc}>
+              Connect Google
+            </Button>
+            <Button type="button" variant="outline" onClick={handleDisconnectGsc}>
+              Disconnect
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>Selective Authoritative Add-ons</CardTitle>
+          <CardDescription>
+            Keep Phase 6 focused: add only high-ROI sources.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="nist-enabled">NIST updates</Label>
+              <p className="text-sm text-muted-foreground">
+                Pull new NIST publications and surface them for content/refresh ideas.
+              </p>
+            </div>
+            <Switch
+              id="nist-enabled"
+              checked={form.authoritative_nist_enabled}
+              onCheckedChange={(checked) =>
+                setForm({ ...form, authoritative_nist_enabled: checked })
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="iso-alerts-enabled">ISO revision alerts</Label>
+              <p className="text-sm text-muted-foreground">
+                Track revision announcements (metadata-only; ISO content may be paywalled).
+              </p>
+            </div>
+            <Switch
+              id="iso-alerts-enabled"
+              checked={form.authoritative_iso_alerts_enabled}
+              onCheckedChange={(checked) =>
+                setForm({ ...form, authoritative_iso_alerts_enabled: checked })
+              }
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <Button onClick={handleSave} disabled={saving}>
+              {saving && <Loader2 className="mr-1 size-4 animate-spin" />}
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="max-w-xl">
+        <CardHeader>
+          <CardTitle>Maintenance</CardTitle>
+          <CardDescription>
+            One-time actions to fix published content on WordPress.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Re-push Articles to WordPress</Label>
+            <p className="text-sm text-muted-foreground">
+              Updates all published WordPress posts with corrected internal link URLs
+              and regenerated JSON-LD structured data. Use &ldquo;Preview&rdquo; first to see what
+              would change without modifying anything.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => handleRepush(true)}
+              disabled={repushing}
+            >
+              {repushing && <Loader2 className="mr-1 size-4 animate-spin" />}
+              Preview Changes
+            </Button>
+            <Button
+              onClick={() => handleRepush(false)}
+              disabled={repushing}
+            >
+              {repushing && <Loader2 className="mr-1 size-4 animate-spin" />}
+              <RefreshCcw className="mr-1 size-4" />
+              Re-push All Articles
+            </Button>
+          </div>
+
+          {repushResults && (
+            <div className="space-y-3 rounded-md border p-4">
+              <p className="text-sm font-medium">{repushResults.message}</p>
+              <div className="flex gap-4 text-sm">
+                <span className="text-green-600">
+                  {repushResults.summary.updated} updated
+                </span>
+                <span className="text-muted-foreground">
+                  {repushResults.summary.skipped} skipped
+                </span>
+                {repushResults.summary.failed > 0 && (
+                  <span className="text-destructive">
+                    {repushResults.summary.failed} failed
+                  </span>
+                )}
+              </div>
+              <div className="max-h-64 space-y-2 overflow-y-auto">
+                {repushResults.results.map((r) => (
+                  <div
+                    key={r.id}
+                    className="flex items-start justify-between gap-2 rounded border p-2 text-sm"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{r.title || r.slug}</p>
+                      <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                        {r.changes.map((c, i) => (
+                          <li key={i}>{c}</li>
+                        ))}
+                      </ul>
+                      {r.error && (
+                        <p className="mt-1 text-destructive">{r.error}</p>
+                      )}
+                    </div>
+                    <Badge
+                      variant={
+                        r.status === 'updated'
+                          ? 'default'
+                          : r.status === 'skipped'
+                            ? 'secondary'
+                            : 'destructive'
+                      }
+                      className="shrink-0"
+                    >
+                      {r.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

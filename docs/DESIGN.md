@@ -726,8 +726,20 @@ generation_batches (
 settings (
   id, key, value,
   -- wp_site_url, wp_username, wp_app_password,
-  -- gemini_api_key, default_target_length, etc.
+  -- gemini_api_key, default_target_length,
+  -- gsc_enabled, gsc_site_url, gsc_url_prefix, gsc_refresh_token, gsc_token_updated_at,
+  -- authoritative_nist_enabled, authoritative_iso_alerts_enabled
 )
+
+-- Google Search Console metrics (Phase 8)
+gsc_page_metrics (page_url, date, clicks, impressions, ctr, position, fetched_at)
+gsc_url_inspections (page_url, verdict, coverage_state, last_crawl_time, canonical_url, robots_txt_state, indexing_state, fetched_at)
+
+-- Content refresh queue (Phase 8)
+content_refresh_queue (id, article_id, status, reason, gsc_snapshot, suggested_actions, created_at, updated_at)
+
+-- External authoritative data (Phase 8)
+external_updates (id, source, title, url, published_at, summary, metadata, created_at)
 ```
 
 ### Row-Level Security
@@ -845,9 +857,9 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 - [x] Integrate openFDA API (device recalls, 483 observations, warning letters, MAUDE device events)
 - [x] Integrate OSHA Enforcement Data API (citations, inspections by SIC code and region)
 - [x] Integrate Federal Register API (new/proposed rules from FDA, OSHA, NIST)
-- [ ] Integrate NIST Publications RSS/API (new special publications, handbook updates)
+- [x] Integrate NIST Publications RSS feed (new special publications, handbook updates)
 - [ ] Integrate CPSC Recalls API for equipment-specific recall data
-- [ ] Monitor ISO.org for standard revision announcements (ISO 17025, 13485, 6789)
+- [x] Monitor ISO.org for standard revision announcements (ISO 17025, 13485, 6789)
 
 *Industry-Specific APIs:*
 - [ ] Integrate FAA Service Difficulty Reports (aerospace calibration failure examples)
@@ -872,8 +884,8 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 **Other Advanced Features:**
 - [x] AI image generation (article hero images via Gemini) — moved to Phase 7, completed
 - [ ] Competitor keyword analysis
-- [ ] Google Search Console integration (track actual ranking performance)
-- [ ] Content refresh (identify old articles that need updating)
+- [x] Google Search Console integration (track actual ranking performance)
+- [x] Content refresh (identify old articles that need updating)
 - [ ] A/B title testing
 - [ ] LinkedIn API integration for direct social posting
 - [ ] GMB post generation and scheduling
@@ -907,7 +919,7 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 - [x] Style directive and format instructions injected into article prompt
 
 **Topical Authority / Cluster Linking:**
-- [x] Cluster linking service: inject `<a href="/blog/{slug}">` links to sibling articles in same pillar/category
+- [x] Cluster linking service: inject `<a href="/{slug}">` links to sibling articles in same pillar/category
 - [x] Safe link injection (skips text inside existing `<a>` tags and headings)
 - [x] `getSiblingArticles` query (same pillar+category, non-null slug, valid statuses)
 - [x] Cluster link bonus in SEO scoring (up to 2 pts in links category)
@@ -926,6 +938,9 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 - [x] Strengthened readability prompt: 80%+ sentences under 20 words, 92%+ active voice, paragraphs under 100 words, H3 subheadings every 150-200 words
 - [x] Deterministic paragraph splitting: post-processing splits any paragraph over 100 words at sentence boundaries
 - [x] Deterministic section breaking: post-processing inserts H3 subheadings into H2 sections exceeding 280 words without subheadings
+- [x] Deterministic consecutive sentence fix: post-processing detects 3+ consecutive sentences starting with the same word and prepends transition phrases
+- [x] Deterministic transition word boosting: post-processing scans all sentences and injects transition words until 30%+ of sentences contain them
+- [x] Prompt strengthened: transition words and consecutive sentence avoidance marked as CRITICAL requirements with explicit counting guidance
 - [x] Outbound links enforced as required (minimum 3 external links)
 
 **AI Image Generation:**
@@ -954,6 +969,53 @@ Since this is single-tenant (one business), RLS is simpler. We still enable it f
 - [x] Fix: Yoast meta fields silently dropped by WordPress REST API (JSON format)
 
 **Deliverable:** Articles have varied structure/voice, author authority signals in JSON-LD, auto-filled practitioner observations, AI-generated images, cross-linking between related articles, and full Yoast SEO optimization. WordPress push sets all Yoast fields automatically.
+
+### Phase 8: GSC Integration, Content Refresh & SEO Fixes
+
+**Goal:** Track actual Google ranking performance, identify content refresh opportunities, integrate external authoritative data sources, and fix URL generation issues discovered via Google Search Console.
+
+**Google Search Console Integration:**
+- [x] OAuth flow for GSC authentication (connect/disconnect via settings UI)
+- [x] GSC OAuth client library (`src/lib/gsc/oauth.ts`) — token exchange, refresh
+- [x] Search Analytics API client (`src/lib/gsc/search-console.ts`) — page metrics + URL inspection
+- [x] Weekly GSC sync Inngest job (Mondays 08:00 UTC) — pulls page-level clicks, impressions, CTR, position
+- [x] URL Inspection API integration (best-effort for recently published articles)
+- [x] "Page 2 opportunity" detection: pages ranking 11–20 with 10+ impressions auto-queued for refresh
+- [x] GSC summary card on dashboard (28-day clicks, impressions, CTR, avg position)
+- [x] Settings UI for GSC connection, site property URL, and URL prefix
+
+**Content Refresh Queue:**
+- [x] `content_refresh_queue` table with article_id, status, reason, gsc_snapshot, suggested_actions
+- [x] Refresh Queue dashboard page (`/refresh`) — view/dismiss/complete queued items
+- [x] API routes for queue management (GET list, PATCH status)
+
+**External Authoritative Data Sources:**
+- [x] NIST Publications RSS feed scraper (`src/lib/external-updates/nist.ts`)
+- [x] ISO news alerts scraper (`src/lib/external-updates/iso.ts`)
+- [x] `external_updates` table with deduplication by source + URL
+- [x] Weekly external updates sync Inngest job (Mondays 08:30 UTC)
+- [x] Settings UI toggles for NIST and ISO (off by default)
+
+**URL & Indexing Fixes (Google Search Console audit):**
+- [x] Fix: JSON-LD article URLs used `/blog/{slug}` but WordPress permalink structure is `/%postname%/` — removed hardcoded `/blog/` prefix from `generators.ts`
+- [x] Fix: Breadcrumb schema category URLs used `/blog/category/{cat}` — corrected to `/category/{cat}`
+- [x] Fix: Cluster linking service injected `href="/blog/{slug}"` — corrected to `href="/{slug}"`
+- [x] Fix: GSC sync job default URL prefix changed from `/blog/` to `/`
+- [x] Fix: Settings UI default GSC URL prefix changed from `/blog/` to `/`
+- [x] Bulk re-push API endpoint (`POST /api/articles/repush`) — regenerates JSON-LD and fixes internal links in all published WordPress posts
+- [x] Dry-run mode (`?dry_run=true`) for previewing re-push changes without modifying WordPress
+- [x] Maintenance card in Settings UI with Preview/Re-push buttons and per-article results
+
+**Database Migrations:**
+- [x] `20260325000001_gsc_and_refresh.sql` — GSC settings columns, `gsc_page_metrics`, `gsc_url_inspections`, `content_refresh_queue` tables
+- [x] `20260325000002_external_updates_nist_iso.sql` — `external_updates` table, NIST/ISO settings columns
+
+**Utility Scripts:**
+- [x] `scripts/db-backup.sh` — timestamped SQL backup of local Supabase database
+- [x] `scripts/db-safe-reset.sh` — backup-then-reset wrapper
+- [x] `scripts/regenerate-missing-articles.ts` — regenerates specific articles by pillar/category/location, approves, and pushes to WordPress
+
+**Deliverable:** Real-time GSC performance tracking, automated content refresh queue driven by ranking signals, external authoritative data feeds, and correct URL generation matching WordPress permalink structure.
 
 ---
 

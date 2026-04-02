@@ -114,7 +114,7 @@ export function injectClusterLinks(
           const before = match[1];
           const matchedText = match[2];
           const after = match[3];
-          const link = `<a href="/blog/${sibling.slug}">${matchedText}</a>`;
+          const link = `<a href="/${sibling.slug}">${matchedText}</a>`;
           const replacement = `>${before}${link}${after}<`;
 
           // Replace only the first occurrence

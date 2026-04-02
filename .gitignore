@@ -35,6 +35,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# database backups
+/backups
+
 # supabase local
 supabase/.branches/
 

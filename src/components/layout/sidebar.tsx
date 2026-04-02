@@ -9,6 +9,7 @@ import {
   Grid3X3,
   BookOpen,
   Settings,
+  RefreshCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -16,6 +17,7 @@ const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/generate', label: 'Generate', icon: PenTool },
   { href: '/articles', label: 'Articles', icon: FileText },
+  { href: '/refresh', label: 'Refresh Queue', icon: RefreshCcw },
   { href: '/matrix', label: 'Content Matrix', icon: Grid3X3 },
   { href: '/knowledge', label: 'Knowledge Base', icon: BookOpen },
   { href: '/settings', label: 'Settings', icon: Settings },

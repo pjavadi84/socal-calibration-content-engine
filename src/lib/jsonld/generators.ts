@@ -46,7 +46,7 @@ const ORG = {
 export function generateArticleJsonLd(input: JsonLdInput): JsonLdOutput {
   const now = new Date().toISOString();
   const publishDate = input.publishedAt || now;
-  const articleUrl = input.slug ? `${ORG.url}/blog/${input.slug}` : ORG.url;
+  const articleUrl = input.slug ? `${ORG.url}/${input.slug}` : ORG.url;
 
   // Article schema
   const article: JsonLdSchema = {
@@ -114,7 +114,7 @@ export function generateArticleJsonLd(input: JsonLdInput): JsonLdOutput {
   const breadcrumbItems = [
     { name: 'Home', url: ORG.url },
     { name: 'Blog', url: `${ORG.url}/blog` },
-    { name: input.category, url: `${ORG.url}/blog/category/${slugify(input.category)}` },
+    { name: input.category, url: `${ORG.url}/category/${slugify(input.category)}` },
   ];
   if (input.slug) {
     breadcrumbItems.push({ name: input.article.title, url: articleUrl });

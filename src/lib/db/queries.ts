@@ -249,6 +249,168 @@ export async function updateSettings(updates: Record<string, unknown>) {
   return data;
 }
 
+// ─── Google Search Console Queries ─────────────────────────────────────
+
+export async function upsertGscPageMetrics(rows: Array<{
+  page_url: string;
+  date: string; // YYYY-MM-DD
+  clicks: number;
+  impressions: number;
+  ctr: number;
+  position: number;
+}>) {
+  if (rows.length === 0) return;
+  const db = createServiceClient();
+  const { error } = await db
+    .from('gsc_page_metrics')
+    .upsert(
+      rows.map((r) => ({
+        page_url: r.page_url,
+        date: r.date,
+        clicks: r.clicks,
+        impressions: r.impressions,
+        ctr: r.ctr,
+        position: r.position,
+        fetched_at: new Date().toISOString(),
+      })),
+      { onConflict: 'page_url,date' }
+    );
+  if (error) throw new Error(`Failed to upsert GSC metrics: ${error.message}`);
+}
+
+export async function insertGscUrlInspection(row: {
+  page_url: string;
+  verdict: string | null;
+  coverage_state: string | null;
+  last_crawl_time: string | null;
+  canonical_url: string | null;
+  robots_txt_state: string | null;
+  indexing_state: string | null;
+}) {
+  const db = createServiceClient();
+  const { error } = await db
+    .from('gsc_url_inspections')
+    .insert({
+      ...row,
+      fetched_at: new Date().toISOString(),
+    });
+  if (error) throw new Error(`Failed to insert URL inspection: ${error.message}`);
+}
+
+export async function getRecentPublishedArticlesWithUrls(limit = 25) {
+  const db = createServiceClient();
+  const { data, error } = await db
+    .from('articles')
+    .select('id, title, slug, wp_post_url, published_at, primary_keyword')
+    .eq('status', 'published')
+    .not('wp_post_url', 'is', null)
+    .order('published_at', { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`Failed to fetch published articles: ${error.message}`);
+  return (data || []) as Array<{
+    id: string;
+    title: string | null;
+    slug: string | null;
+    wp_post_url: string | null;
+    published_at: string | null;
+    primary_keyword: string | null;
+  }>;
+}
+
+export async function getGscSummary(params: { urlPrefix?: string; days?: number }) {
+  const days = params.days ?? 28;
+  const db = createServiceClient();
+
+  const start = new Date();
+  start.setDate(start.getDate() - days);
+  const startDate = start.toISOString().slice(0, 10);
+
+  let query = db
+    .from('gsc_page_metrics')
+    .select('page_url, date, clicks, impressions, ctr, position')
+    .gte('date', startDate);
+
+  if (params.urlPrefix) query = query.ilike('page_url', `%${params.urlPrefix}%`);
+
+  const { data, error } = await query;
+  if (error) throw new Error(`Failed to fetch GSC summary: ${error.message}`);
+
+  const rows = (data || []) as Array<{
+    page_url: string;
+    date: string;
+    clicks: number;
+    impressions: number;
+    ctr: number;
+    position: number;
+  }>;
+
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.clicks += r.clicks || 0;
+      acc.impressions += r.impressions || 0;
+      acc.positionSum += (r.position || 0) * (r.impressions || 0);
+      acc.impressionWeight += r.impressions || 0;
+      return acc;
+    },
+    { clicks: 0, impressions: 0, positionSum: 0, impressionWeight: 0 }
+  );
+
+  const avgPosition =
+    totals.impressionWeight > 0 ? totals.positionSum / totals.impressionWeight : null;
+  const ctr = totals.impressions > 0 ? totals.clicks / totals.impressions : null;
+
+  return {
+    clicks: totals.clicks,
+    impressions: totals.impressions,
+    ctr,
+    avgPosition,
+  };
+}
+
+// ─── Content Refresh Queue ─────────────────────────────────────────────
+
+export async function upsertRefreshQueueItem(params: {
+  articleId: string;
+  reason: string;
+  gscSnapshot: unknown;
+  suggestedActions?: unknown;
+}) {
+  const db = createServiceClient();
+  const { error } = await db
+    .from('content_refresh_queue')
+    .upsert(
+      {
+        article_id: params.articleId,
+        status: 'queued',
+        reason: params.reason,
+        gsc_snapshot: params.gscSnapshot as never,
+        suggested_actions: (params.suggestedActions || {}) as never,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'article_id,status' }
+    );
+  if (error) throw new Error(`Failed to upsert refresh queue item: ${error.message}`);
+}
+
+export async function listRefreshQueue() {
+  const db = createServiceClient();
+  const { data, error } = await db
+    .from('content_refresh_queue')
+    .select('id, article_id, status, reason, gsc_snapshot, suggested_actions, created_at, updated_at, articles(title, wp_post_url, primary_keyword)')
+    .order('updated_at', { ascending: false });
+  if (error) throw new Error(`Failed to list refresh queue: ${error.message}`);
+  return data || [];
+}
+
+export async function updateRefreshQueueStatus(id: string, status: string) {
+  const db = createServiceClient();
+  const { error } = await db
+    .from('content_refresh_queue')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) throw new Error(`Failed to update refresh queue: ${error.message}`);
+}
+
 // ─── Stats Queries ────────────────────────────────────────────────────
 
 export async function getArticleStats() {

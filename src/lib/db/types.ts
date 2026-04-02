@@ -315,6 +315,13 @@ export type Database = {
           auto_push_on_approve: boolean
           authoritative_apis_enabled: boolean
           authoritative_apis_config: Json
+          gsc_enabled: boolean
+          gsc_site_url: string | null
+          gsc_url_prefix: string | null
+          gsc_refresh_token: string | null
+          gsc_token_updated_at: string | null
+          authoritative_nist_enabled: boolean
+          authoritative_iso_alerts_enabled: boolean
           author_name: string | null
           author_title: string | null
           author_bio: string | null
@@ -330,6 +337,13 @@ export type Database = {
           auto_push_on_approve?: boolean
           authoritative_apis_enabled?: boolean
           authoritative_apis_config?: Json
+          gsc_enabled?: boolean
+          gsc_site_url?: string | null
+          gsc_url_prefix?: string | null
+          gsc_refresh_token?: string | null
+          gsc_token_updated_at?: string | null
+          authoritative_nist_enabled?: boolean
+          authoritative_iso_alerts_enabled?: boolean
           author_name?: string | null
           author_title?: string | null
           author_bio?: string | null
@@ -345,6 +359,13 @@ export type Database = {
           auto_push_on_approve?: boolean
           authoritative_apis_enabled?: boolean
           authoritative_apis_config?: Json
+          gsc_enabled?: boolean
+          gsc_site_url?: string | null
+          gsc_url_prefix?: string | null
+          gsc_refresh_token?: string | null
+          gsc_token_updated_at?: string | null
+          authoritative_nist_enabled?: boolean
+          authoritative_iso_alerts_enabled?: boolean
           author_name?: string | null
           author_title?: string | null
           author_bio?: string | null
@@ -384,6 +405,149 @@ export type Database = {
           source_urls?: string[]
           fetched_at?: string
           expires_at?: string
+        }
+        Relationships: []
+      }
+      gsc_page_metrics: {
+        Row: {
+          id: string
+          page_url: string
+          date: string
+          clicks: number
+          impressions: number
+          ctr: number
+          position: number
+          fetched_at: string
+        }
+        Insert: {
+          id?: string
+          page_url: string
+          date: string
+          clicks?: number
+          impressions?: number
+          ctr?: number
+          position?: number
+          fetched_at?: string
+        }
+        Update: {
+          id?: string
+          page_url?: string
+          date?: string
+          clicks?: number
+          impressions?: number
+          ctr?: number
+          position?: number
+          fetched_at?: string
+        }
+        Relationships: []
+      }
+      gsc_url_inspections: {
+        Row: {
+          id: string
+          page_url: string
+          verdict: string | null
+          coverage_state: string | null
+          last_crawl_time: string | null
+          canonical_url: string | null
+          robots_txt_state: string | null
+          indexing_state: string | null
+          fetched_at: string
+        }
+        Insert: {
+          id?: string
+          page_url: string
+          verdict?: string | null
+          coverage_state?: string | null
+          last_crawl_time?: string | null
+          canonical_url?: string | null
+          robots_txt_state?: string | null
+          indexing_state?: string | null
+          fetched_at?: string
+        }
+        Update: {
+          id?: string
+          page_url?: string
+          verdict?: string | null
+          coverage_state?: string | null
+          last_crawl_time?: string | null
+          canonical_url?: string | null
+          robots_txt_state?: string | null
+          indexing_state?: string | null
+          fetched_at?: string
+        }
+        Relationships: []
+      }
+      content_refresh_queue: {
+        Row: {
+          id: string
+          article_id: string
+          status: string
+          reason: string | null
+          gsc_snapshot: Json | null
+          suggested_actions: Json | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          article_id: string
+          status?: string
+          reason?: string | null
+          gsc_snapshot?: Json | null
+          suggested_actions?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          article_id?: string
+          status?: string
+          reason?: string | null
+          gsc_snapshot?: Json | null
+          suggested_actions?: Json | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_refresh_queue_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_updates: {
+        Row: {
+          id: string
+          source: string
+          title: string
+          url: string
+          published_at: string | null
+          summary: string | null
+          metadata: Json
+          fetched_at: string
+        }
+        Insert: {
+          id?: string
+          source: string
+          title: string
+          url: string
+          published_at?: string | null
+          summary?: string | null
+          metadata?: Json
+          fetched_at?: string
+        }
+        Update: {
+          id?: string
+          source?: string
+          title?: string
+          url?: string
+          published_at?: string | null
+          summary?: string | null
+          metadata?: Json
+          fetched_at?: string
         }
         Relationships: []
       }

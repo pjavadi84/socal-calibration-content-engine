@@ -308,6 +308,150 @@ function breakLongSections(bodyHtml: string, maxWordsWithoutSubheading: number =
 }
 
 /**
+ * Transition words that Yoast recognizes for its readability check.
+ */
+const TRANSITION_WORDS = [
+  'however', 'therefore', 'in addition', 'as a result', 'for example',
+  'moreover', 'consequently', 'furthermore', 'in fact', 'on the other hand',
+  'specifically', 'most importantly', 'meanwhile', 'similarly', 'in contrast',
+  'additionally', 'notably', 'ultimately', 'likewise', 'nevertheless',
+  'above all', 'for instance', 'in particular', 'as such', 'to illustrate',
+];
+
+/**
+ * Get the first word of a sentence (stripping HTML tags first).
+ */
+function getFirstWord(sentence: string): string {
+  const plain = sentence.replace(/<[^>]*>/g, '').trim();
+  const match = plain.match(/^(\w+)/);
+  return match ? match[1].toLowerCase() : '';
+}
+
+/**
+ * Check if a sentence already contains a transition word/phrase.
+ */
+function hasTransitionWord(sentence: string): boolean {
+  const plain = sentence.replace(/<[^>]*>/g, '').toLowerCase();
+  return TRANSITION_WORDS.some((tw) => plain.includes(tw));
+}
+
+/**
+ * Fix consecutive sentences that start with the same word.
+ * Yoast flags 3+ consecutive sentences starting with the same word.
+ * We prepend a transition phrase to the third occurrence to break the pattern.
+ */
+function fixConsecutiveSentenceStarts(bodyHtml: string): string {
+  return bodyHtml.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (fullMatch, attrs, content) => {
+    const sentences = content.split(/(?<=[.!?])\s+/);
+    if (sentences.length < 3) return fullMatch;
+
+    const result: string[] = [];
+    let consecutiveCount = 1;
+    let lastFirstWord = '';
+
+    for (let i = 0; i < sentences.length; i++) {
+      const firstWord = getFirstWord(sentences[i]);
+
+      if (firstWord && firstWord === lastFirstWord) {
+        consecutiveCount++;
+      } else {
+        consecutiveCount = 1;
+      }
+
+      if (consecutiveCount >= 3) {
+        // Pick a random transition to prepend
+        const transition = TRANSITION_WORDS[Math.floor(Math.random() * 12)];
+        const capitalized = transition.charAt(0).toUpperCase() + transition.slice(1);
+        // Lowercase the first letter of the original sentence
+        const original = sentences[i].replace(/<[^>]*>/g, '').trim();
+        const firstChar = original.charAt(0);
+        if (firstChar === firstChar.toUpperCase() && firstChar !== firstChar.toLowerCase()) {
+          const rewritten = sentences[i].replace(
+            /^(\s*(?:<[^>]*>)*)([A-Z])/,
+            (_m: string, pre: string, letter: string) => `${pre}${letter.toLowerCase()}`
+          );
+          result.push(`${capitalized}, ${rewritten}`);
+        } else {
+          result.push(`${capitalized}, ${sentences[i]}`);
+        }
+        consecutiveCount = 1; // Reset after fix
+        lastFirstWord = transition.split(' ')[0];
+      } else {
+        result.push(sentences[i]);
+        lastFirstWord = firstWord;
+      }
+    }
+
+    return `<p${attrs}>${result.join(' ')}</p>`;
+  });
+}
+
+/**
+ * Boost transition word usage across the article.
+ * Yoast requires ~30% of sentences to contain transition words.
+ * We scan each paragraph and prepend transitions to sentences that lack them
+ * until we hit the target ratio.
+ */
+function boostTransitionWords(bodyHtml: string): string {
+  // First, count current transition word usage
+  const allSentences: string[] = [];
+  bodyHtml.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, (_m, content) => {
+    const sentences = (content as string).split(/(?<=[.!?])\s+/).filter((s: string) => s.trim());
+    allSentences.push(...sentences);
+    return '';
+  });
+
+  if (allSentences.length === 0) return bodyHtml;
+
+  const withTransition = allSentences.filter(hasTransitionWord).length;
+  const ratio = withTransition / allSentences.length;
+
+  // If already at 30%+, no changes needed
+  if (ratio >= 0.30) return bodyHtml;
+
+  // Calculate how many sentences need transitions
+  const target = Math.ceil(allSentences.length * 0.30);
+  let remaining = target - withTransition;
+
+  let transitionIndex = 0;
+  return bodyHtml.replace(/<p([^>]*)>([\s\S]*?)<\/p>/gi, (fullMatch, attrs, content) => {
+    if (remaining <= 0) return fullMatch;
+
+    const sentences = content.split(/(?<=[.!?])\s+/);
+    if (sentences.length < 2) return fullMatch;
+
+    const result: string[] = [];
+    for (let i = 0; i < sentences.length; i++) {
+      // Skip first sentence of each paragraph and sentences that already have transitions
+      if (i === 0 || hasTransitionWord(sentences[i]) || remaining <= 0) {
+        result.push(sentences[i]);
+        continue;
+      }
+
+      // Only modify ~every other eligible sentence to keep it natural
+      if (i % 2 === 0) {
+        result.push(sentences[i]);
+        continue;
+      }
+
+      const transition = TRANSITION_WORDS[transitionIndex % TRANSITION_WORDS.length];
+      transitionIndex++;
+      const capitalized = transition.charAt(0).toUpperCase() + transition.slice(1);
+
+      // Lowercase the first character of the original sentence
+      const rewritten = sentences[i].replace(
+        /^(\s*(?:<[^>]*>)*)([A-Z])/,
+        (_m: string, pre: string, letter: string) => `${pre}${letter.toLowerCase()}`
+      );
+      result.push(`${capitalized}, ${rewritten}`);
+      remaining--;
+    }
+
+    return `<p${attrs}>${result.join(' ')}</p>`;
+  });
+}
+
+/**
  * Run all Yoast refinements on article content after keyword extraction.
  */
 export function refineForYoast(input: RefinementInput): RefinementOutput {
@@ -315,6 +459,8 @@ export function refineForYoast(input: RefinementInput): RefinementOutput {
   bodyHtml = refineSubheadings(bodyHtml, input.primaryKeyword);
   bodyHtml = splitLongParagraphs(bodyHtml);
   bodyHtml = breakLongSections(bodyHtml);
+  bodyHtml = fixConsecutiveSentenceStarts(bodyHtml);
+  bodyHtml = boostTransitionWords(bodyHtml);
 
   return {
     metaTitle: refineMetaTitle(input.metaTitle, input.primaryKeyword),

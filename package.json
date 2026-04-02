@@ -10,7 +10,8 @@
     "db:migrate": "supabase db push",
     "db:migrate:remote": "node_modules/.bin/dotenv -e .env.local -- sh -c 'for f in supabase/migrations/*.sql; do psql \"$SUPABASE_DB_URL\" -f \"$f\" || exit 1; done'",
     "db:seed": "node_modules/.bin/dotenv -e .env.local -- sh -c 'psql \"$SUPABASE_DB_URL\" -f supabase/seeds/seed.sql'",
-    "db:reset": "supabase db reset",
+    "db:backup": "bash scripts/db-backup.sh",
+    "db:reset": "bash scripts/db-safe-reset.sh",
     "db:types": "supabase gen types typescript --linked > src/lib/db/types.ts"
   },
   "dependencies": {

@@ -33,6 +33,11 @@ export async function PUT(request: NextRequest) {
     if (body.auto_push_on_approve !== undefined) updates.auto_push_on_approve = body.auto_push_on_approve;
     if (body.authoritative_apis_enabled !== undefined) updates.authoritative_apis_enabled = body.authoritative_apis_enabled;
     if (body.authoritative_apis_config !== undefined) updates.authoritative_apis_config = body.authoritative_apis_config;
+    if (body.gsc_enabled !== undefined) updates.gsc_enabled = body.gsc_enabled;
+    if (body.gsc_site_url !== undefined) updates.gsc_site_url = body.gsc_site_url;
+    if (body.gsc_url_prefix !== undefined) updates.gsc_url_prefix = body.gsc_url_prefix;
+    if (body.authoritative_nist_enabled !== undefined) updates.authoritative_nist_enabled = body.authoritative_nist_enabled;
+    if (body.authoritative_iso_alerts_enabled !== undefined) updates.authoritative_iso_alerts_enabled = body.authoritative_iso_alerts_enabled;
     if (body.author_name !== undefined) updates.author_name = body.author_name;
     if (body.author_title !== undefined) updates.author_title = body.author_title;
     if (body.author_bio !== undefined) updates.author_bio = body.author_bio;
